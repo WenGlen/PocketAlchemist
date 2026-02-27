@@ -119,6 +119,28 @@
   --color-text-secondary-25: color-mix(in srgb, var(--color-text-secondary) 25%, transparent);
   --color-text-secondary-50: color-mix(in srgb, var(--color-text-secondary) 50%, transparent);
   --color-text-secondary-75: color-mix(in srgb, var(--color-text-secondary) 75%, transparent);
+
+  /* 遊戲／地圖用色（灰色系） */
+  --color-map-bg: hsl(200, 10%, 16%);
+  --color-map-grass-top: hsl(200, 8%, 22%);
+  --color-map-grass-mid: hsl(200, 8%, 18%);
+  --color-map-grass-bottom: hsl(200, 8%, 14%);
+  --color-player-bg: var(--color-primary);
+  --color-player-border: var(--color-text-emphasized);
+  --color-player-glow: var(--color-primary-muted);
+}
+
+/* 手機直式優先：直式 4:3 為基準，最寬 75vh，置中 */
+.game-layout {
+  width: 100%;
+  max-width: 75vh;
+  min-height: 100vh;
+  height: 100vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--color-bg);
 }
 
 .border-test { border: 2px solid hsl(340, 50%, 50%) !important; }
@@ -132,4 +154,70 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text-default);
   box-sizing: border-box;
+}
+
+// ===========================================
+// UI 回饋動畫（拖曳落地、控制環、合成、慶祝）
+// ===========================================
+@keyframes slot-landing-bounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  70% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+@keyframes control-ring-appear {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes control-ring-breathe {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+@keyframes craft-result-glow {
+  0% { box-shadow: 0 0 8px var(--color-primary-50); transform: scale(0.9); }
+  50% { box-shadow: 0 0 24px var(--color-primary-75); transform: scale(1.05); }
+  100% { box-shadow: 0 0 16px var(--color-primary-50); transform: scale(1); }
+}
+@keyframes resource-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@keyframes float-text-up {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-28px); }
+}
+@keyframes ripple-expand {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@keyframes quest-complete-in {
+  0% { opacity: 0; transform: scale(0.8); }
+  60% { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-slot-landing {
+  animation: slot-landing-bounce 0.2s ease-out;
+}
+.animate-control-ring-appear {
+  animation: control-ring-appear 0.15s ease-out forwards;
+}
+.animate-control-ring-breathe {
+  animation: control-ring-breathe 1.5s ease-in-out infinite;
+}
+.animate-craft-result-glow {
+  animation: craft-result-glow 0.35s ease-out;
+}
+.animate-resource-shake {
+  animation: resource-shake 0.25s ease-in-out;
+}
+.animate-float-text {
+  animation: float-text-up 0.7s ease-out forwards;
+}
+.animate-ripple-expand {
+  animation: ripple-expand 0.6s ease-out forwards;
+}
+.animate-quest-complete {
+  animation: quest-complete-in 0.4s ease-out;
 }
