@@ -1,0 +1,292 @@
+// ===========================================
+// flex（與 Tailwind 併用，只保留組合 shorthand）
+// 順序：flex-*-* → flex-*--* → flex-*-*-*
+// ===========================================
+//
+// 【Tailwind 已有、此檔不重複寫，用 Tailwind 即可】
+// 方向: flex, flex-col, flex-row, flex-col-reverse, flex-row-reverse
+// 換行: flex-wrap, flex-nowrap, flex-wrap-reverse
+// 間距: gap-0, gap-1, gap-2, … gap-x-*, gap-y-*
+// 子項: flex-1, flex-auto, flex-none, flex-shrink, flex-shrink-0, flex-grow, flex-grow-0
+// 對齊: justify-start, justify-end, justify-center, justify-between, justify-around, justify-evenly
+//       items-start, items-end, items-center, items-baseline, items-stretch
+// 自對齊: self-auto, self-start, self-end, self-center, self-stretch, self-baseline
+//
+
+// --- flex-*-* (direction + justify) ---
+.flex-col-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.flex-col-start {
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+}
+
+.flex-col-end {
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+}
+
+.flex-col-between {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.flex-row-center {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+}
+
+.flex-row-start {
+  display: flex;
+  flex-direction: row;
+  justify-content: start;
+}
+
+.flex-row-end {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+}
+
+.flex-row-between {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+// --- flex-*--* (direction + align-items only) ---
+.flex-col--center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.flex-col--start {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+}
+
+.flex-col--end {
+  display: flex;
+  flex-direction: column;
+  align-items: end;
+}
+
+.flex-row--center {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.flex-row--start {
+  display: flex;
+  flex-direction: row;
+  align-items: start;
+}
+
+.flex-row--end {
+  display: flex;
+  flex-direction: row;
+  align-items: end;
+}
+
+// --- flex-*-*-* (同 flex-*-* 的放一起：*-center-* > *-start-* > *-end-* > *-between-*) ---
+.flex-col-center-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-col-center-start {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: start;
+}
+
+.flex-col-center-end {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: end;
+}
+
+.flex-col-start-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+  align-items: center;
+}
+
+.flex-col-start-start {
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+  align-items: start;
+}
+
+.flex-col-start-end {
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+  align-items: end;
+}
+
+.flex-col-end-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: center;
+}
+
+.flex-col-end-start {
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: start;
+}
+
+.flex-col-end-end {
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: end;
+}
+
+.flex-col-between-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-col-between-start {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.flex-col-between-end {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: end;
+}
+
+.flex-row-center-center {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-row-center-start {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: start;
+}
+
+.flex-row-center-end {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: end;
+}
+
+.flex-row-start-center {
+  display: flex;
+  flex-direction: row;
+  justify-content: start;
+  align-items: center;
+}
+
+.flex-row-start-start {
+  display: flex;
+  flex-direction: row;
+  justify-content: start;
+  align-items: start;
+}
+
+.flex-row-start-end {
+  display: flex;
+  flex-direction: row;
+  justify-content: start;
+  align-items: end;
+}
+
+.flex-row-end-center {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+  align-items: center;
+}
+
+.flex-row-end-start {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+  align-items: start;
+}
+
+.flex-row-end-end {
+  display: flex;
+  flex-direction: row;
+  justify-content: end;
+  align-items: end;
+}
+
+.flex-row-between-center {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-row-between-start {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: start;
+}
+
+.flex-row-between-end {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: end;
+}
+
+@layer utilities {
+  .ease-in-out-100 { transition: all 0.1s ease-in-out; }
+  .ease-in-out-200 { transition: all 0.2s ease-in-out; }
+  .ease-in-out-300 { transition: all 0.3s ease-in-out; }
+  .ease-in-out-400 { transition: all 0.4s ease-in-out; }
+  .ease-in-out-500 { transition: all 0.5s ease-in-out; }
+  .ease-in-out-600 { transition: all 0.6s ease-in-out; }
+  .ease-in-out-700 { transition: all 0.7s ease-in-out; }
+  .ease-in-out-800 { transition: all 0.8s ease-in-out; }
+  .ease-in-out-900 { transition: all 0.9s ease-in-out; }
+  .ease-in-out-1000 { transition: all 1s ease-in-out; }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
