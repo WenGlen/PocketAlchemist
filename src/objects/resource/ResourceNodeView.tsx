@@ -14,6 +14,8 @@ interface ResourceNodeViewProps {
   playRipple?: boolean;
   /** 靠近時泡泡說明（與可接任務泡泡同風格），由 objectsTable 設定 */
   proximityBubbleText?: string;
+  /** 點擊泡泡時觸發（與點擊圓圈同效果） */
+  onTap?: () => void;
 }
 
 export function ResourceNodeView({
@@ -25,6 +27,7 @@ export function ResourceNodeView({
   shakeKey = 0,
   playRipple = false,
   proximityBubbleText,
+  onTap,
 }: ResourceNodeViewProps) {
   const r = node.radius;
   const canInteract = inRange && !disabled;
@@ -35,12 +38,24 @@ export function ResourceNodeView({
   return (
     <div className="absolute flex flex-col items-center" style={{ left: node.x - r, top: node.y - r }}>
       {inRange && !disabled && proximityBubbleText && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 -top-8 rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 pointer-events-none"
-          aria-hidden
-        >
-          📦 {proximityBubbleText}
-        </div>
+        node.acquisitionType === 'tap' ? (
+          <button
+            type="button"
+            className="absolute left-1/2 -translate-x-1/2 rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 cursor-pointer hover:bg-[var(--color-panel-hover)] hover:border-[var(--color-primary-hover)] active:scale-95 transition-colors"
+            style={{ top: r * 2 - 8 }}
+            onClick={(e) => { e.stopPropagation(); onTap?.(); }}
+          >
+            📦 {proximityBubbleText}
+          </button>
+        ) : (
+          <div
+            className="absolute left-1/2 -translate-x-1/2 rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 pointer-events-none"
+            style={{ top: r * 2 - 8 }}
+            aria-hidden
+          >
+            📦 {proximityBubbleText}
+          </div>
+        )
       )}
       {playRipple && (
         <div
@@ -60,12 +75,12 @@ export function ResourceNodeView({
         data-resource-drop={node.id}
         className={`rounded-full flex items-center justify-center text-xs font-medium transition-all flex-shrink-0 ${
           disabled
-            ? 'opacity-50 border-2 border-[var(--color-text-muted)] bg-[var(--color-panel-muted)] text-[var(--color-text-muted)] cursor-not-allowed'
+            ? 'opacity-50 border-2 border-[var(--color-resource-disabled)] bg-[var(--color-panel-muted)] text-[var(--color-text-muted)] cursor-not-allowed'
             : highlightAsDropTarget
-              ? 'border-[3px] border-[var(--color-primary)] shadow-[0_0_16px var(--color-primary-75)] bg-[var(--color-primary-25)] text-[var(--color-text-default)]'
+              ? 'border-[3px] border-[var(--color-object-focus)] shadow-[0_0_16px_var(--color-primary-75)] bg-[var(--color-primary-25)] text-[var(--color-text-default)]'
               : canInteract
-                ? 'border-[3px] border-[var(--color-primary)] shadow-[0_0_12px var(--color-primary-50)] text-[var(--color-text-default)]'
-                : 'border-2 border-[var(--color-border)] opacity-80 text-[var(--color-text-default)]'
+                ? 'border-[3px] border-[var(--color-object-focus)] shadow-[0_0_12px_var(--color-primary-50)] text-[var(--color-text-default)]'
+                : 'border-2 border-[var(--color-resource-normal)] opacity-80 text-[var(--color-text-default)]'
         } ${playShake ? 'animate-resource-shake' : ''}`}
         style={{
           width: r * 2,

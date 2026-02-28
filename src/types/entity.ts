@@ -39,6 +39,10 @@ export interface TerrainDef extends BaseEntity {
   displayName?: string;
   /** 地圖上圓圈內顯示的短名稱（未設則用 displayName） */
   mapLabel?: string;
+  /** 渲染形狀：'circle' = 圓形、'rect' = 矩形（預設）；影響 border-radius */
+  shape?: 'circle' | 'rect';
+  /** 地圖上顯示的底色 CSS 變數（如 var(--color-secondary)）；未設則用地形預設色 */
+  mapColor?: string;
 }
 
 /** 怪物：每隔一段時間攻擊一次，可暈眩中斷；可選左右／上下巡邏 */
@@ -50,6 +54,8 @@ export interface MonsterDef extends BaseEntity {
   attackIntervalMs: number;
   /** 單次攻擊傷害 */
   attackDamage: number;
+  /** 被點擊後暈眩持續時間（ms）；未設則不可暈眩 */
+  stunDurationMs?: number;
   /** 顯示名稱（如「護巢野豬」），用於 title 等 */
   displayName?: string;
   /** 地圖上圓圈內顯示的名稱（未設則用 displayName） */

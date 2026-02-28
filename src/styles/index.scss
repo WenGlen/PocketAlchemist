@@ -128,6 +128,21 @@
   --color-player-bg: var(--color-primary);
   --color-player-border: var(--color-text-emphasized);
   --color-player-glow: var(--color-primary-muted);
+
+  /* 遊戲／物件邊框用色 */
+  --color-object-focus: var(--color-primary);
+  --color-npc-normal: var(--color-border);
+  --color-monster-normal: hsl(40, 50%, 50%);
+  --color-monster-cooldown: hsl(30, 30%, 40%);
+  --color-monster-stunned: hsl(40, 40%, 25%);
+  --color-monster-attack: hsl(340, 80%, 45%);
+  --color-terrain-blocked: hsl(90, 10%, 50%);
+  --color-terrain-danger: hsl(20, 60%, 30%);
+  --color-terrain-attack: hsl(340, 60%, 45%);
+  --color-resource-normal: hsl(90, 30%, 50%);
+  --color-resource-disabled: hsl(90, 10%, 30%);
+
+
 }
 
 /* 手機直式優先：直式 4:3 為基準，最寬 75vh，置中 */
@@ -198,6 +213,39 @@ body {
   60% { transform: scale(1.05); }
   100% { opacity: 1; transform: scale(1); }
 }
+/* 怪物攻擊晃動：發動攻擊時短暫左右震盪 */
+@keyframes monster-attack-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-4px); }
+  40%  { transform: translateX(4px); }
+  60%  { transform: translateX(-3px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+/* 暈眩倒數圈：暈眩開始後從 0.5x 往外長到 1.0x，播完停在邊緣，表示剩餘暈眩時間 */
+@keyframes monster-stun-ring {
+  0%   { transform: scale(0.5); opacity: 0.45; }
+  85%  { transform: scale(1);   opacity: 0.75; }
+  100% { transform: scale(1);   opacity: 0.55; }
+}
+/* 冷卻圈縮放：1.5x 線性縮小到 1.0x，全程持續，100% 才碰到怪物邊緣（＝攻擊時機） */
+@keyframes monster-ring-scale {
+  0%   { transform: scale(1.5); }
+  100% { transform: scale(1.0); }
+}
+/* 冷卻圈透明度：初始打中感強（opacity 1），25% 降到 0.5（稍淡 = 默默倒數），
+   98% 回升到 1（即將攻擊的警示感），100% 瞬間淡出至 0（遮住 React re-render 殘影） */
+@keyframes monster-ring-opacity {
+  0%   { opacity: 1;   }
+  25%  { opacity: 0.5; }
+  98%  { opacity: 1;   }
+  100% { opacity: 0;   }
+}
+/* 閃紅：攻擊觸發後持續 0.5s，不設 forwards，0.5s 後自動回到 class 定義的冷卻顏色 */
+@keyframes monster-ring-flash-red {
+  from { border-color: var(--color-monster-attack); }
+  to   { border-color: var(--color-monster-attack); }
+}
 
 .animate-slot-landing {
   animation: slot-landing-bounce 0.2s ease-out;
@@ -222,4 +270,28 @@ body {
 }
 .animate-quest-complete {
   animation: quest-complete-in 0.4s ease-out;
+}
+.animate-monster-stun-ring {
+  border-color: var(--color-monster-normal);
+  animation: monster-stun-ring linear 1 forwards;
+}
+/* 攻擊觸發的冷卻圈：初始 0.5s 閃紅（flash-red 無 forwards，0.5s 後自動還原冷卻色），縮放 + 透明度全程跑
+   duration 由 inline animationDuration 覆寫（避免 var() 在 animation shorthand 的瀏覽器解析問題） */
+.animate-monster-ring-attack {
+  border-color: var(--color-monster-cooldown);
+  animation-name: monster-ring-scale, monster-ring-opacity, monster-ring-flash-red;
+  animation-timing-function: linear, linear, linear;
+  animation-iteration-count: 1, 1, 1;
+  animation-fill-mode: forwards, forwards, none;
+}
+/* 暈眩結束後的冷卻圈：不閃紅，直接冷卻色 */
+.animate-monster-ring-cooldown {
+  border-color: var(--color-monster-cooldown);
+  animation-name: monster-ring-scale, monster-ring-opacity;
+  animation-timing-function: linear, linear;
+  animation-iteration-count: 1, 1;
+  animation-fill-mode: forwards, forwards;
+}
+.animate-monster-attack-shake {
+  animation: monster-attack-shake 0.35s ease-out 1 forwards;
 }

@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { objectTable, npcsByMap, resourceNodes, resourceNodesByMap, labTerrains, labMonsters, getInitialResourceRemainingForMap, getBlockingTerrainsForMap } from '../objects/data/objectsTable';
+import { objectTable, npcsByMap, resourceNodes, resourceNodesByMap, labTerrains, labMonsters, getInitialResourceRemainingForMap, getBlockingTerrainsForMap, getLabMonster } from '../objects/data/objectsTable';
 import type { LastResourceFeedback } from '../objects/resource/resourceEffectRegistry';
 import { interactionConfig } from '../config/interactionConfig';
-import { getMap } from '../env/map/data/maps';
+import { getMap } from '../env/map/data/mapsTable';
 
 const PLAYER_SPEED = 200;
 const PLAYER_RADIUS = 20;
@@ -88,6 +88,11 @@ export function useGameState() {
   const [gameOutcome, setGameOutcome] = useState<GameOutcome>('playing');
   /** MVP-01：怪物暈眩結束時間戳 */
   const [monsterStunUntil, setMonsterStunUntil] = useState(0);
+  /** patrol RAF 內讀取暈眩時間用（不觸發 re-render） */
+  const monsterStunUntilRef = useRef(0);
+  /** patrol RAF 內讀取遊戲結果用（不觸發 re-render） */
+  const gameOutcomeRef = useRef<GameOutcome>('playing');
+  gameOutcomeRef.current = gameOutcome;
   /** MVP-01：tap 使用地形（需藥劑清除）時，選中的藥劑 itemId */
   const [selectedPotionItemId, setSelectedPotionItemId] = useState<string | null>(null);
   /** 已清除的地形 id（passable=false + requiredItemId 的地形用藥劑清除後記錄） */
@@ -96,6 +101,12 @@ export function useGameState() {
   const [selectedQuestId, setSelectedQuestId] = useState('QST-main-001');
   /** 選單切換／重新開始時遞增，供背包等重置 */
   const [missionResetKey, setMissionResetKey] = useState(0);
+  /** 怪物每次實際攻擊的時間戳（用於閃光 / 晃動動畫）；初始為空 */
+  const [monsterLastHitTimes, setMonsterLastHitTimes] = useState<Record<string, number>>({});
+  /** 冷卻圈起始時間戳（實際攻擊後 or 暈眩結束時更新，與 lastHitTimes 解耦）；初始為空 */
+  const [monsterCooldownResetTimes, setMonsterCooldownResetTimes] = useState<Record<string, number>>({});
+  /** 最後一次暈眩觸發（連點 key 遞增以重播動畫） */
+  const [lastStunFeedback, setLastStunFeedback] = useState<{ monsterId: string; label: string; key: number } | null>(null);
   /** 怪物即時位置（有 patrol 的會隨時間更新；key = monsterId） */
   const [monsterPositions, setMonsterPositions] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(labMonsters.map((m) => [m.id, { x: m.x, y: m.y }]))
@@ -160,10 +171,23 @@ export function useGameState() {
     []
   );
 
-  /** MVP-01：點擊怪物暈眩 */
-  const tryStunMonster = useCallback(() => {
+  /** MVP-01：點擊怪物暈眩（依各怪物 stunDurationMs，未設則不暈眩）；連點重置倒計時並重播提示 */
+  const tryStunMonster = useCallback((monsterId: string) => {
     if (interactionConfig.monsterTapEffect !== 'stun') return;
-    setMonsterStunUntil(Date.now() + interactionConfig.monsterStunMs);
+    const monster = getLabMonster(monsterId);
+    if (!monster?.stunDurationMs) return;
+    const until = Date.now() + monster.stunDurationMs;
+    monsterStunUntilRef.current = until;
+    // 把 ref 重置為暈眩結束時間，確保解除暈眩後不會立即攻擊
+    monsterLastAttackRef.current[monsterId] = until;
+    setMonsterStunUntil(until);
+    // 冷卻圈從暈眩結束時間開始計，不觸發閃光
+    setMonsterCooldownResetTimes((prev) => ({ ...prev, [monsterId]: until }));
+    setLastStunFeedback((prev) => ({
+      monsterId,
+      label: '★ 暈眩！',
+      key: (prev?.key ?? 0) + 1,
+    }));
   }, []);
 
   /** 用藥劑清除地形（drag 或 tap 成功後呼叫） */
@@ -183,6 +207,13 @@ export function useGameState() {
     return () => clearTimeout(t);
   }, [lastResourceFeedback]);
 
+  // 暈眩浮動文字：播完後清掉
+  useEffect(() => {
+    if (!lastStunFeedback) return;
+    const t = setTimeout(() => setLastStunFeedback(null), 700);
+    return () => clearTimeout(t);
+  }, [lastStunFeedback]);
+
   /** 選單：選擇任務（切換或重新開始）；傳入該任務的 mapId 與 questId */
   const selectMission = useCallback((nextMapId: string, nextQuestId: string) => {
     setPlayerPosition(getSpawnForMap(nextMapId));
@@ -195,6 +226,7 @@ export function useGameState() {
     setHp(HP_MAX);
     setGameOutcome('playing');
     setMonsterStunUntil(0);
+    monsterStunUntilRef.current = 0;
     setSelectedPotionItemId(null);
     setTerrainClearedIds({});
     setResourceRemaining(getInitialResourceRemainingForMap(nextMapId));
@@ -203,6 +235,9 @@ export function useGameState() {
       labMonsters.filter((m) => m.patrol).map((m) => [m.id, 1])
     );
     lastTerrainDamageRef.current = {};
+    monsterLastAttackRef.current = Object.fromEntries(labMonsters.map((m) => [m.id, 0]));
+    setMonsterLastHitTimes({});
+    setMonsterCooldownResetTimes({});
     setMissionResetKey((k) => k + 1);
   }, []);
 
@@ -297,8 +332,9 @@ export function useGameState() {
       setMonsterPositions((prev) => {
         const next: Record<string, { x: number; y: number }> = {};
         const dirs = monsterPatrolDirectionRef.current;
+        const isStunned = monsterStunUntilRef.current > Date.now();
         for (const m of labMonsters) {
-          if (!m.patrol) {
+          if (!m.patrol || isStunned) {
             next[m.id] = prev[m.id] ?? { x: m.x, y: m.y };
             continue;
           }
@@ -323,6 +359,29 @@ export function useGameState() {
         }
         return next;
       });
+
+      // 怪物攻擊：在 RAF 裡以 ~16ms 精度觸發，確保與冷卻動畫同步
+      if (gameOutcomeRef.current === 'playing' && monsterStunUntilRef.current <= Date.now()) {
+        const now = Date.now();
+        const pos = playerPositionRef.current;
+        for (const m of labMonsters) {
+          const mpos = monsterPositionsRef.current[m.id] ?? { x: m.x, y: m.y };
+          const inRange = Math.hypot(pos.x - mpos.x, pos.y - mpos.y) <= m.radius;
+          const last = monsterLastAttackRef.current[m.id] ?? 0;
+          if (inRange && now - last >= m.attackIntervalMs) {
+            monsterLastAttackRef.current[m.id] = now;
+            // 命中時間（閃光 / 晃動）與冷卻圈起始時間同時更新
+            setMonsterLastHitTimes((prev) => ({ ...prev, [m.id]: now }));
+            setMonsterCooldownResetTimes((prev) => ({ ...prev, [m.id]: now }));
+            setHp((h) => {
+              const next = Math.max(0, h - m.attackDamage);
+              if (next <= 0) setGameOutcome('fail');
+              return next;
+            });
+          }
+        }
+      }
+
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
@@ -333,10 +392,13 @@ export function useGameState() {
   playerPositionRef.current = playerPosition;
   const monsterPositionsRef = useRef<Record<string, { x: number; y: number }>>(monsterPositions);
   monsterPositionsRef.current = monsterPositions;
-  const monsterLastAttackRef = useRef<Record<string, number>>({});
+  /** 怪物上次攻擊時間戳（ref，不觸發 re-render）；初始為 0 代表冷卻完畢，玩家進範圍即可立刻攻擊 */
+  const monsterLastAttackRef = useRef<Record<string, number>>(
+    Object.fromEntries(labMonsters.map((m) => [m.id, 0]))
+  );
   const lastTerrainDamageRef = useRef<Record<string, number>>({});
 
-  // MVP-01：proximity 節流 — 地形持續扣血、怪物間隔攻擊（任務完成由 quest complete 步驟觸發）
+  // MVP-01：proximity 節流 — 地形持續扣血（怪物攻擊已移入 RAF 以確保動畫同步）
   useEffect(() => {
     if (mapId !== 'MAP-field-001' || gameOutcome !== 'playing') return;
     const interval = setInterval(() => {
@@ -358,26 +420,9 @@ export function useGameState() {
           });
         }
       }
-
-      // 怪物：每隔 attackIntervalMs 攻擊一次，暈眩期間不攻擊（位置以 monsterPositions 為準）
-      if (now >= monsterStunUntil) {
-        for (const monster of labMonsters) {
-          const mpos = monsterPositionsRef.current[monster.id] ?? { x: monster.x, y: monster.y };
-          const inRange = Math.hypot(pos.x - mpos.x, pos.y - mpos.y) <= monster.radius;
-          const last = monsterLastAttackRef.current[monster.id] ?? 0;
-          if (inRange && now - last >= monster.attackIntervalMs) {
-            monsterLastAttackRef.current[monster.id] = now;
-            setHp((h) => {
-              const next = Math.max(0, h - monster.attackDamage);
-              if (next <= 0) setGameOutcome('fail');
-              return next;
-            });
-          }
-        }
-      }
     }, PROXIMITY_TICK_MS);
     return () => clearInterval(interval);
-  }, [mapId, gameOutcome, monsterStunUntil]);
+  }, [mapId, gameOutcome]);
 
   return {
     mapId,
@@ -409,11 +454,14 @@ export function useGameState() {
     dismissOutcome: useCallback(() => setGameOutcome('playing'), []),
     monsterStunUntil,
     tryStunMonster,
+    lastStunFeedback,
     selectedPotionItemId,
     setSelectedPotion,
     terrainClearedIds,
     clearTerrain,
     monsterPositions,
+    monsterLastHitTimes,
+    monsterCooldownResetTimes,
     selectMission,
     selectedQuestId,
     missionResetKey,

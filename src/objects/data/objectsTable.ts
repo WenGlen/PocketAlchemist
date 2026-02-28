@@ -105,6 +105,8 @@ export interface ResourceNodeDef {
   exchangeFloatText?: string;
   /** 靠近時泡泡說明（與可接任務泡泡同風格），如「可採集茶葉」「拖曳玻璃瓶至此裝水」 */
   proximityBubbleText?: string;
+  /** 暫時隱藏此資源點（不渲染、不碰撞），物件本身保留供日後啟用 */
+  hidden?: boolean;
 }
 
 export const OBJ_RES_001: ResourceNodeDef = {
@@ -123,19 +125,19 @@ export const OBJ_RES_001: ResourceNodeDef = {
   gatherLimitByMap: { 'MAP-field-001': 3 },
   gatherEffectId: 'shake_float',
   gatherFloatText: '+1 茶葉',
-  proximityBubbleText: '可採集茶葉',
+  proximityBubbleText: '點擊可採集茶葉',
 };
 
 export const OBJ_RES_002: ResourceNodeDef = {
   id: 'OBJ-res-002',
   type: 'resource_node',
   x: 380,
-  y: 540,
-  radius: 52,
+  y: 560,
+  radius: 28,
   interactive: true,
   kind: 'lake',
-  displayName: '湖',
-  mapLabel: '湖',
+  displayName: '取水點',
+  mapLabel: '取水點',
   mapColor: 'var(--color-secondary-50)',
   acquisitionType: 'exchange',
   requireItemId: 'ITM-mat-0001',
@@ -161,6 +163,7 @@ export const OBJ_RES_003: ResourceNodeDef = {
   gatherEffectId: 'shake_float',
   gatherFloatText: '+1 藥草',
   proximityBubbleText: '可採集藥草',
+  hidden: true,
 };
 
 export const resourceNodes: ResourceNodeDef[] = [OBJ_RES_001, OBJ_RES_002, OBJ_RES_003];
@@ -209,7 +212,7 @@ export const LAB_TERRAIN_001: TerrainDef = {
   radius: 70,
   interactive: false,
   passable: true,
-  damagePerTick: 8,
+  damagePerTick: 1,
   damageIntervalMs: 100,
   displayName: '尖刺',
   mapLabel: '尖刺',
@@ -229,6 +232,24 @@ export const LAB_TERRAIN_002: TerrainDef = {
   mapLabel: '藤蔓',
 };
 
+/**
+ * 湖：不可穿越的大型地形，圓形，位於取水點（OBJ-res-002, x=380, y=540, r=28）正下方。
+ * 上邊緣 = 取水點下邊緣（540+28=568）→ y = 568 + 120 = 688
+ */
+export const LAB_TERRAIN_003: TerrainDef = {
+  id: 'OBJ-ter-003',
+  type: 'terrain',
+  x: 380,
+  y: 688,
+  radius: 120,
+  interactive: false,
+  passable: false,
+  shape: 'circle',
+  mapColor: 'var(--color-secondary)',
+  displayName: '湖',
+  mapLabel: '湖',
+};
+
 /** 護巢野豬：會左右巡邏 */
 export const LAB_MONSTER_001: MonsterDef = {
   id: 'OBJ-mob-001',
@@ -238,13 +259,14 @@ export const LAB_MONSTER_001: MonsterDef = {
   radius: 36,
   interactive: true,
   attackIntervalMs: 2000,
-  attackDamage: 15,
+  attackDamage: 1,
+  stunDurationMs: 3000,
   displayName: '護巢野豬',
   mapLabel: '護巢野豬',
-  patrol: { axis: 'x', range: 80, speed: 50 },
+  patrol: { axis: 'x', range: 10, speed: 20 },
 };
 
-export const labTerrains: TerrainDef[] = [LAB_TERRAIN_001, LAB_TERRAIN_002];
+export const labTerrains: TerrainDef[] = [LAB_TERRAIN_001, LAB_TERRAIN_002, LAB_TERRAIN_003];
 export const labMonsters: MonsterDef[] = [LAB_MONSTER_001];
 
 export function getLabTerrain(id: string): TerrainDef | undefined {

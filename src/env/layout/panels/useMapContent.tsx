@@ -42,7 +42,11 @@ export interface MapContentState {
   dropTargetTerrainId: string | null;
   terrainClearedIds: Record<string, boolean>;
   monsterPositions: Record<string, { x: number; y: number }>;
+  monsterLastHitTimes: Record<string, number>;
+  monsterCooldownResetTimes: Record<string, number>;
   monsterStunned: boolean;
+  monsterStunUntil: number;
+  lastStunFeedback: { monsterId: string; label: string; key: number } | null;
   acceptFromEntityId: string | null;
   questPhase: 'none' | 'accepted' | 'completed';
   bubbleEntityId: string | null;
@@ -71,7 +75,11 @@ export function useMapContent(
     dropTargetTerrainId,
     terrainClearedIds,
     monsterPositions,
+    monsterLastHitTimes,
+    monsterCooldownResetTimes,
     monsterStunned,
+    monsterStunUntil,
+    lastStunFeedback,
     acceptFromEntityId,
     questPhase,
     bubbleEntityId,
@@ -80,7 +88,7 @@ export function useMapContent(
   } = state;
 
   const npcs = npcsByMap[mapId] ?? [objectTable['OBJ-npc-001']!];
-  const resources = resourceNodesByMap[mapId] ?? resourceNodes;
+  const resources = (resourceNodesByMap[mapId] ?? resourceNodes).filter((n) => !n.hidden);
 
   const hitTestTargets: HitTestTargets = useMemo(
     () => ({
@@ -144,6 +152,7 @@ export function useMapContent(
               shakeKey={effectDef?.playShake ? (fb?.key ?? 0) : 0}
               playRipple={effectDef?.playRipple ?? false}
               proximityBubbleText={node.proximityBubbleText}
+              onTap={() => onTap('resource', node.id)}
             />
           );
         })}
@@ -167,22 +176,45 @@ export function useMapContent(
         })()}
         {mapId === 'MAP-field-001' && (
           <>
-            {labTerrains.map((t) => (
-              <TerrainView
-                key={t.id}
-                terrain={t}
-                cleared={!!terrainClearedIds[t.id]}
-                highlightAsDropTarget={dropTargetTerrainId === t.id}
-              />
-            ))}
+            {labTerrains.map((t) => {
+              const terrainInRange =
+                t.damagePerTick != null &&
+                Math.hypot(playerPosition.x - t.x, playerPosition.y - t.y) <= t.radius;
+              return (
+                <TerrainView
+                  key={t.id}
+                  terrain={t}
+                  cleared={!!terrainClearedIds[t.id]}
+                  highlightAsDropTarget={dropTargetTerrainId === t.id}
+                  playerInRange={terrainInRange}
+                />
+              );
+            })}
             {labMonsters.map((m) => (
               <MonsterView
                 key={m.id}
                 monster={m}
                 position={monsterPositions[m.id]}
                 stunned={monsterStunned}
+                monsterStunUntil={monsterStunUntil}
+                lastHitTime={monsterLastHitTimes[m.id] ?? 0}
+                lastCooldownResetTime={monsterCooldownResetTimes[m.id] ?? 0}
               />
             ))}
+            {lastStunFeedback && (() => {
+              const m = labMonsters.find((mon) => mon.id === lastStunFeedback.monsterId);
+              if (!m) return null;
+              const pos = monsterPositions[m.id] ?? { x: m.x, y: m.y };
+              return (
+                <div
+                  key={lastStunFeedback.key}
+                  className="absolute pointer-events-none text-sm font-bold animate-float-text whitespace-nowrap text-[var(--color-monster-attack)]"
+                  style={{ left: pos.x - 28, top: pos.y - m.radius - 28 }}
+                >
+                  {lastStunFeedback.label}
+                </div>
+              );
+            })()}
           </>
         )}
       </>
@@ -199,7 +231,11 @@ export function useMapContent(
     dropTargetTerrainId,
     terrainClearedIds,
     monsterPositions,
+    monsterLastHitTimes,
+    monsterCooldownResetTimes,
     monsterStunned,
+    monsterStunUntil,
+    lastStunFeedback,
     questPhase,
     acceptFromEntityId,
     bubbleEntityId,

@@ -276,7 +276,7 @@ export function GameScreen() {
     [game, backpack]
   );
 
-  const handleTapMonster = useCallback(() => game.tryStunMonster(), [game]);
+  const handleTapMonster = useCallback((monsterId: string) => game.tryStunMonster(monsterId), [game]);
   const handleTapTerrain = useCallback(
     (terrainId: string) => {
       if (interactionConfig.obstacleUseMode !== 'tap') return;
@@ -310,7 +310,7 @@ export function GameScreen() {
     (type: 'npc' | 'resource' | 'monster' | 'terrain', id: string) => {
       if (type === 'npc') handleTapNpc(id);
       else if (type === 'resource') handleTapResource(id);
-      else if (type === 'monster') handleTapMonster();
+      else if (type === 'monster') handleTapMonster(id);
       else if (type === 'terrain') handleTapTerrain(id);
     },
     [handleTapNpc, handleTapResource, handleTapMonster, handleTapTerrain]
@@ -327,7 +327,11 @@ export function GameScreen() {
       dropTargetTerrainId: dropTarget?.type === 'terrain' ? dropTarget.id : null,
       terrainClearedIds: game.terrainClearedIds,
       monsterPositions: game.monsterPositions,
+      monsterLastHitTimes: game.monsterLastHitTimes,
       monsterStunned,
+      monsterStunUntil: game.monsterStunUntil,
+      monsterCooldownResetTimes: game.monsterCooldownResetTimes,
+      lastStunFeedback: game.lastStunFeedback,
       acceptFromEntityId: getStartStep(quest)?.entityId ?? null,
       questPhase: game.questPhase,
       bubbleEntityId: bubble?.entityId ?? null,

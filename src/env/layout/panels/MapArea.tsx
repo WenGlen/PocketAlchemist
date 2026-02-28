@@ -4,7 +4,7 @@
  */
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { interactionConfig } from '../../../config/interactionConfig';
-import { getMap } from '../../map/data/maps';
+import { getMap } from '../../map/data/mapsTable';
 import { ControlRing } from '../controls/ControlRing';
 import type { HitTestTargets, MapEntityType } from './useMapContent';
 
@@ -223,15 +223,33 @@ export function MapArea({
           background: 'var(--color-map-bg)',
         }}
       >
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `url("https://www.transparenttextures.com/patterns/fresh-snow.png"), linear-gradient(180deg, var(--color-map-grass-top) 0%, var(--color-map-grass-mid) 50%, var(--color-map-grass-bottom) 100%)`,
-            backgroundRepeat: 'repeat, no-repeat',
-            backgroundSize: 'auto, 100% 100%',
-            opacity: 0.25,
-          }}
-        />
+        {mapData.texture && (() => {
+          const { overlayUrl, overlayOpacity = 1, gradientColors } = mapData.texture;
+          const parts: string[] = [];
+          const repeats: string[] = [];
+          const sizes: string[] = [];
+          if (overlayUrl) {
+            parts.push(`url("${overlayUrl}")`);
+            repeats.push('repeat');
+            sizes.push('auto');
+          }
+          if (gradientColors) {
+            parts.push(`linear-gradient(180deg, ${gradientColors.top} 0%, ${gradientColors.mid} 50%, ${gradientColors.bottom} 100%)`);
+            repeats.push('no-repeat');
+            sizes.push('100% 100%');
+          }
+          return (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: parts.join(', '),
+                backgroundRepeat: repeats.join(', '),
+                backgroundSize: sizes.join(', '),
+                opacity: overlayOpacity,
+              }}
+            />
+          );
+        })()}
         <div
           className="absolute rounded-full border-[3px] bg-[var(--color-player-bg)] border-[var(--color-player-border)]"
           style={{

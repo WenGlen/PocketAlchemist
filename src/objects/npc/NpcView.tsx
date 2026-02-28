@@ -19,7 +19,7 @@ export function NpcView({ npc, inRange, demandItemId, demandLabel, onBubbleClick
       {inRange && bubbleText && (
         <button
           type="button"
-          className="absolute left-1/2 -translate-x-1/2 -top-8 rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 hover:bg-[var(--color-panel-muted)] active:scale-[0.98] cursor-pointer transition-all"
+          className="absolute left-1/2 -translate-x-1/2 top-full -translate-y-full rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 hover:bg-[var(--color-panel-muted)] active:scale-[0.98] cursor-pointer transition-all"
           title={`${bubbleText}（點擊互動）`}
           onClick={(e) => {
             e.stopPropagation();
@@ -32,8 +32,8 @@ export function NpcView({ npc, inRange, demandItemId, demandLabel, onBubbleClick
       <div
         className={`rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-text-default)] transition-all ${
           inRange
-            ? 'bg-[var(--color-secondary)] border-[3px] border-[var(--color-primary)] shadow-[0_0_12px_var(--color-primary-50)]'
-            : 'bg-[var(--color-secondary-50)] border-2 border-[var(--color-border)] opacity-80'
+            ? 'bg-[var(--color-secondary)] border-[3px] border-[var(--color-object-focus)] shadow-[0_0_12px_var(--color-primary-50)]'
+            : 'bg-[var(--color-secondary-50)] border-2 border-[var(--color-npc-normal)] opacity-80'
         }`}
         style={{ width: r * 2, height: r * 2 }}
         title={inRange ? `${npc.displayName}（可互動）` : npc.displayName}
