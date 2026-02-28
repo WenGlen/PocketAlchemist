@@ -154,6 +154,8 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text-default);
   box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 // ===========================================

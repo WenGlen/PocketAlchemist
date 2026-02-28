@@ -15,6 +15,7 @@ export type DropTargetFromBackpack =
   | { type: 'synthesis'; index: number }
   | { type: 'delivery' }
   | { type: 'resource'; id: string }
+  | { type: 'terrain'; id: string }
   | null;
 
 interface BackpackProps {

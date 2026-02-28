@@ -1,0 +1,212 @@
+/**
+ * 地圖「內容物」：依 mapId 取得實體清單、解析資源特效、產出 hitTestTargets 與實體視圖。
+ * 由 GameScreen 使用，結果傳給 MapArea（基底＋移動）做擺放與點擊判定。
+ */
+import { useMemo } from 'react';
+import {
+  objectTable,
+  npcsByMap,
+  resourceNodesByMap,
+  resourceNodes,
+  labTerrains,
+  labMonsters,
+  getGatherLimitForNode,
+} from '../../../objects/data/objectsTable';
+import { getResourceEffectOrDefault } from '../../../objects/resource/resourceEffectRegistry';
+import { NpcView } from '../../../objects/npc/NpcView';
+import { ResourceNodeView } from '../../../objects/resource/ResourceNodeView';
+import { TerrainView } from '../../../objects/terrain/TerrainView';
+import { MonsterView } from '../../../objects/monster/MonsterView';
+
+export interface HitTestTarget {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+}
+
+export interface HitTestTargets {
+  npcs: HitTestTarget[];
+  resources: HitTestTarget[];
+  monsters: HitTestTarget[];
+  terrains: HitTestTarget[];
+}
+
+export interface MapContentState {
+  mapId: string;
+  playerPosition: { x: number; y: number };
+  interactionRange: number;
+  resourceRemaining: Record<string, number>;
+  lastResourceFeedback: { nodeId: string; effectId: string; label: string; key: number } | null;
+  dropTargetResourceId: string | null;
+  dropTargetTerrainId: string | null;
+  terrainClearedIds: Record<string, boolean>;
+  monsterPositions: Record<string, { x: number; y: number }>;
+  monsterStunned: boolean;
+  acceptFromEntityId: string | null;
+  questPhase: 'none' | 'accepted' | 'completed';
+  bubbleEntityId: string | null;
+  bubbleItemId: string | null;
+  bubbleLabel: string | null;
+}
+
+export type MapEntityType = 'npc' | 'resource' | 'monster' | 'terrain';
+
+export interface UseMapContentOptions {
+  onTap: (type: MapEntityType, id: string) => void;
+}
+
+export function useMapContent(
+  state: MapContentState,
+  options: UseMapContentOptions
+): { hitTestTargets: HitTestTargets; content: React.ReactNode } {
+  const { onTap } = options;
+  const {
+    mapId,
+    playerPosition,
+    interactionRange,
+    resourceRemaining,
+    lastResourceFeedback,
+    dropTargetResourceId,
+    dropTargetTerrainId,
+    terrainClearedIds,
+    monsterPositions,
+    monsterStunned,
+    acceptFromEntityId,
+    questPhase,
+    bubbleEntityId,
+    bubbleItemId,
+    bubbleLabel,
+  } = state;
+
+  const npcs = npcsByMap[mapId] ?? [objectTable['OBJ-npc-001']!];
+  const resources = resourceNodesByMap[mapId] ?? resourceNodes;
+
+  const hitTestTargets: HitTestTargets = useMemo(
+    () => ({
+      npcs: npcs.map((n) => ({ id: n.id, x: n.x, y: n.y, radius: n.radius ?? 24 })),
+      resources: resources.map((r) => ({ id: r.id, x: r.x, y: r.y, radius: r.radius })),
+      monsters:
+        mapId === 'MAP-field-001'
+          ? labMonsters.map((m) => {
+              const pos = monsterPositions[m.id] ?? { x: m.x, y: m.y };
+              return { id: m.id, x: pos.x, y: pos.y, radius: m.radius };
+            })
+          : [],
+      terrains:
+        mapId === 'MAP-field-001'
+          ? labTerrains
+              .filter((t) => !(t.requiredItemId && terrainClearedIds[t.id]))
+              .map((t) => ({ id: t.id, x: t.x, y: t.y, radius: t.radius }))
+          : [],
+    }),
+    [mapId, npcs, resources, terrainClearedIds, monsterPositions]
+  );
+
+  const content = useMemo(() => {
+    const isNpcInRange = (npc: (typeof npcs)[number]) =>
+      Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) <= interactionRange;
+    const isResourceInRange = (node: (typeof resources)[number]) =>
+      Math.hypot(playerPosition.x - node.x, playerPosition.y - node.y) <= interactionRange;
+
+    return (
+      <>
+        {npcs.map((npc) => {
+          const inRange = isNpcInRange(npc);
+          const canInteract =
+            questPhase !== 'completed' &&
+            (!acceptFromEntityId || questPhase !== 'none' || npc.id === acceptFromEntityId);
+          return (
+            <NpcView
+              key={npc.id}
+              npc={npc}
+              inRange={inRange && canInteract}
+              demandItemId={npc.id === bubbleEntityId ? bubbleItemId : null}
+              demandLabel={npc.id === bubbleEntityId ? bubbleLabel : null}
+              onBubbleClick={() => onTap('npc', npc.id)}
+            />
+          );
+        })}
+        {resources.map((node) => {
+          const limit = getGatherLimitForNode(node, mapId);
+          const remaining = limit != null ? (resourceRemaining[node.id] ?? limit) : undefined;
+          const disabled = limit != null && (remaining ?? 0) <= 0;
+          const fb = lastResourceFeedback?.nodeId === node.id ? lastResourceFeedback : null;
+          const effectDef = fb ? getResourceEffectOrDefault(fb.effectId) : null;
+          return (
+            <ResourceNodeView
+              key={node.id}
+              node={node}
+              inRange={isResourceInRange(node)}
+              disabled={disabled}
+              highlightAsDropTarget={dropTargetResourceId === node.id}
+              playShake={effectDef?.playShake ?? false}
+              shakeKey={effectDef?.playShake ? (fb?.key ?? 0) : 0}
+              playRipple={effectDef?.playRipple ?? false}
+              proximityBubbleText={node.proximityBubbleText}
+            />
+          );
+        })}
+        {lastResourceFeedback && (() => {
+          const node = resources.find((n) => n.id === lastResourceFeedback.nodeId);
+          if (!node) return null;
+          const effectDef = getResourceEffectOrDefault(lastResourceFeedback.effectId);
+          const colorClass =
+            effectDef.floatTextVariant === 'secondary'
+              ? 'text-[var(--color-secondary)]'
+              : 'text-[var(--color-text-success)]';
+          return (
+            <div
+              key={lastResourceFeedback.key}
+              className={`absolute pointer-events-none text-sm font-medium animate-float-text whitespace-nowrap ${colorClass}`}
+              style={{ left: node.x - 28, top: node.y - node.radius - 28 }}
+            >
+              {lastResourceFeedback.label}
+            </div>
+          );
+        })()}
+        {mapId === 'MAP-field-001' && (
+          <>
+            {labTerrains.map((t) => (
+              <TerrainView
+                key={t.id}
+                terrain={t}
+                cleared={!!terrainClearedIds[t.id]}
+                highlightAsDropTarget={dropTargetTerrainId === t.id}
+              />
+            ))}
+            {labMonsters.map((m) => (
+              <MonsterView
+                key={m.id}
+                monster={m}
+                position={monsterPositions[m.id]}
+                stunned={monsterStunned}
+              />
+            ))}
+          </>
+        )}
+      </>
+    );
+  }, [
+    mapId,
+    npcs,
+    resources,
+    playerPosition,
+    interactionRange,
+    resourceRemaining,
+    lastResourceFeedback,
+    dropTargetResourceId,
+    dropTargetTerrainId,
+    terrainClearedIds,
+    monsterPositions,
+    monsterStunned,
+    questPhase,
+    acceptFromEntityId,
+    bubbleEntityId,
+    bubbleItemId,
+    bubbleLabel,
+    onTap,
+  ]);
+
+  return { hitTestTargets, content };
+}

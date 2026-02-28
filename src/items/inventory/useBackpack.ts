@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { getItem } from '../data/itemTable';
 
 export interface SlotItem {
@@ -9,6 +9,8 @@ export interface SlotItem {
 export interface UseBackpackOptions {
   capacity?: number;
   initialSlots?: SlotItem[];
+  /** 變更時將背包重置為 initialSlots（用於切換／重新開始任務） */
+  resetKey?: number;
 }
 
 function getMaxStack(itemId: string): number {
@@ -17,15 +19,24 @@ function getMaxStack(itemId: string): number {
   return def?.stackable ? 99 : 1;
 }
 
-export function useBackpack(options: UseBackpackOptions = {}) {
-  const { capacity = 10, initialSlots = [] } = options;
-  const [slots, setSlots] = useState<(SlotItem | null)[]>(() => {
-    const arr: (SlotItem | null)[] = Array(capacity).fill(null);
-    initialSlots.forEach((s, i) => {
-      if (i < capacity) arr[i] = s;
-    });
-    return arr;
+function fillSlots(capacity: number, initialSlots: SlotItem[]): (SlotItem | null)[] {
+  const arr: (SlotItem | null)[] = Array(capacity).fill(null);
+  initialSlots.forEach((s, i) => {
+    if (i < capacity) arr[i] = s;
   });
+  return arr;
+}
+
+export function useBackpack(options: UseBackpackOptions = {}) {
+  const { capacity = 10, initialSlots = [], resetKey = 0 } = options;
+  const [slots, setSlots] = useState<(SlotItem | null)[]>(() =>
+    fillSlots(capacity, initialSlots)
+  );
+
+  useEffect(() => {
+    setSlots(fillSlots(capacity, initialSlots));
+    // 僅在 resetKey 變更時重置（切換／重新開始任務）
+  }, [resetKey]);
 
   const addItem = useCallback((itemId: string, count: number = 1) => {
     const maxStack = getMaxStack(itemId);

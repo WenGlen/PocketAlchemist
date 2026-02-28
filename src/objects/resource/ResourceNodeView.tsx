@@ -1,4 +1,4 @@
-import type { ResourceNodeDef } from '../data/resourceNodes';
+import type { ResourceNodeDef } from '../data/objectsTable';
 
 interface ResourceNodeViewProps {
   node: ResourceNodeDef;
@@ -12,6 +12,8 @@ interface ResourceNodeViewProps {
   shakeKey?: number;
   /** 剛裝水完成，播漣漪 */
   playRipple?: boolean;
+  /** 靠近時泡泡說明（與可接任務泡泡同風格），由 objectsTable 設定 */
+  proximityBubbleText?: string;
 }
 
 export function ResourceNodeView({
@@ -22,12 +24,24 @@ export function ResourceNodeView({
   playShake = false,
   shakeKey = 0,
   playRipple = false,
+  proximityBubbleText,
 }: ResourceNodeViewProps) {
   const r = node.radius;
-  const label = node.kind === 'tea_tree' ? '茶樹' : '湖';
   const canInteract = inRange && !disabled;
+  const backgroundColor = node.mapColor ?? 'var(--color-secondary-50)';
+  const titleText = disabled
+    ? '已採完'
+    : proximityBubbleText ?? (node.requireItemId ? '拖曳道具至此交換' : '可採集');
   return (
-    <div className="absolute" style={{ left: node.x - r, top: node.y - r }}>
+    <div className="absolute flex flex-col items-center" style={{ left: node.x - r, top: node.y - r }}>
+      {inRange && !disabled && proximityBubbleText && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 -top-8 rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 pointer-events-none"
+          aria-hidden
+        >
+          📦 {proximityBubbleText}
+        </div>
+      )}
       {playRipple && (
         <div
           className="absolute rounded-full border-2 border-[var(--color-secondary)] animate-ripple-expand origin-center"
@@ -44,7 +58,7 @@ export function ResourceNodeView({
       <div
         key={playShake ? shakeKey : 0}
         data-resource-drop={node.id}
-        className={`rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+        className={`rounded-full flex items-center justify-center text-xs font-medium transition-all flex-shrink-0 ${
           disabled
             ? 'opacity-50 border-2 border-[var(--color-text-muted)] bg-[var(--color-panel-muted)] text-[var(--color-text-muted)] cursor-not-allowed'
             : highlightAsDropTarget
@@ -56,26 +70,11 @@ export function ResourceNodeView({
         style={{
           width: r * 2,
           height: r * 2,
-          backgroundColor:
-            node.kind === 'tea_tree'
-              ? disabled
-                ? 'var(--color-panel-muted)'
-                : 'var(--color-map-grass-mid)'
-              : 'var(--color-secondary-50)',
+          backgroundColor: disabled ? 'var(--color-panel-muted)' : backgroundColor,
         }}
-        title={
-          disabled
-            ? '已採完'
-            : node.kind === 'lake'
-              ? inRange
-                ? '拖曳玻璃瓶到此裝水'
-                : '靠近後可拖曳玻璃瓶裝水'
-              : inRange
-                ? '可採集'
-                : '靠近後可採集'
-        }
+        title={titleText}
       >
-        {label}
+        {node.mapLabel}
       </div>
     </div>
   );

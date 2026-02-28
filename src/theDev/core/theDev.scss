@@ -1,0 +1,275 @@
+// ===========================================
+// theDev 回報工具 - 手機觸控優先
+// 觸控目標建議 ≥ 44px，按鈕與輸入區加大
+// 變數放在 :root 以確保有被套用（無需包 .thedev 父層）
+// ===========================================
+
+:root {
+  --thedev-overlay: rgba(0, 0, 0, 0.5);
+  --thedev-panel-bg: hsl(210, 20%, 14%);
+  --thedev-panel-border: hsl(210, 20%, 35%);
+  --thedev-btn-bg: hsl(205, 30%, 28%);
+  --thedev-btn-active: hsl(205, 40%, 22%);
+  --thedev-btn-submit: hsl(40, 100%, 30%);
+  --thedev-btn-submit-active: hsl(40, 100%, 22%);
+  --thedev-input-bg: hsl(210, 20%, 20%);
+  --thedev-input-border: hsl(210, 20%, 40%);
+  --thedev-text: hsl(200, 20%, 92%);
+  --thedev-text-muted: hsl(200, 15%, 60%);
+  --thedev-success: hsl(140, 50%, 55%);
+  --thedev-error: hsl(340, 60%, 58%);
+  --thedev-touch-min: 44px;
+  --thedev-touch-btn: 48px;
+}
+
+.thedev-trigger {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 9998;
+  width: 48px;
+  height: 48px;
+  min-width: var(--thedev-touch-min);
+  min-height: var(--thedev-touch-min);
+  border-radius: 50%;
+  background: var(--thedev-btn-bg);
+  color: var(--thedev-text);
+  border: 1px solid var(--thedev-panel-border);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: background 0.15s ease, transform 0.1s ease;
+  &:active {
+    background: var(--thedev-btn-active);
+    transform: scale(0.96);
+  }
+}
+
+.thedev-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--thedev-overlay);
+  touch-action: none;
+}
+
+.thedev-panel-wrap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  max-height: 66.666vh;
+  z-index: 10000;
+  background: var(--thedev-panel-bg);
+  border-radius: 0 0 16px 16px;
+  border: 1px solid var(--thedev-panel-border);
+  border-top: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.thedev-panel-header {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--thedev-panel-border);
+  min-height: var(--thedev-touch-btn);
+}
+.thedev-panel-title { font-size: 16px; font-weight: 600; color: var(--thedev-text); }
+.thedev-close {
+  min-width: var(--thedev-touch-min);
+  min-height: var(--thedev-touch-min);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--thedev-btn-bg);
+  color: var(--thedev-text);
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  &:active { background: var(--thedev-btn-active); }
+}
+
+.thedev-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--thedev-panel-border);
+  background: var(--thedev-panel-bg);
+}
+.thedev-toolbar .thedev-footer-btn {
+  flex: 1;
+  min-height: var(--thedev-touch-btn);
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.thedev-toolbar .thedev-footer-btn:active { transform: scale(0.98); }
+
+.thedev-panel-body {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(66.666vh - 140px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+
+.thedev-field { margin-bottom: 16px; }
+.thedev-label {
+  display: block;
+  font-size: 14px;
+  color: var(--thedev-text-muted);
+  margin-bottom: 6px;
+}
+.thedev-input,
+.thedev-textarea,
+.thedev-select {
+  width: 100%;
+  min-height: var(--thedev-touch-btn);
+  padding: 12px 14px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--thedev-input-border);
+  background: var(--thedev-input-bg);
+  color: var(--thedev-text);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  box-sizing: border-box;
+  &:focus {
+    outline: none;
+    border-color: var(--thedev-text);
+  }
+}
+.thedev-textarea { min-height: 100px; resize: vertical; }
+.thedev-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.thedev-checkbox-group { display: flex; flex-direction: column; gap: 0; }
+.thedev-checkbox-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--thedev-touch-btn);
+  padding: 10px 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  border-bottom: 1px solid var(--thedev-panel-border);
+  &:last-of-type { border-bottom: none; }
+  &:active { opacity: 0.85; }
+}
+.thedev-checkbox-item input {
+  width: 22px; height: 22px; margin-right: 12px; flex-shrink: 0;
+  accent-color: var(--thedev-btn-submit);
+  cursor: pointer;
+}
+.thedev-checkbox-item span { font-size: 15px; color: var(--thedev-text); }
+
+.thedev-question-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  &::-webkit-scrollbar { height: 4px; }
+  &::-webkit-scrollbar-thumb { background: var(--thedev-panel-border); border-radius: 2px; }
+}
+.thedev-question-tab {
+  flex-shrink: 0;
+  min-height: var(--thedev-touch-min);
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--thedev-input-bg);
+  border: 1px solid var(--thedev-input-border);
+  color: var(--thedev-text);
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  &:active, &.active {
+    background: var(--thedev-btn-bg);
+    border-color: var(--thedev-btn-submit);
+  }
+}
+
+.thedev-footer-btn {
+  flex: 1;
+  min-height: var(--thedev-touch-btn);
+  padding: 12px 8px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.thedev-footer-btn-submit {
+  background: var(--thedev-btn-submit);
+  color: white;
+  &:active { background: var(--thedev-btn-submit-active); }
+}
+.thedev-footer-btn-mode {
+  background: var(--thedev-btn-bg);
+  color: var(--thedev-text-muted);
+  border: 1px solid var(--thedev-panel-border);
+  &:active, &.active {
+    background: hsl(205, 45%, 38%);
+    border-color: hsl(205, 60%, 65%);
+    color: var(--thedev-text);
+  }
+}
+
+.thedev-feedback-msg {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  min-height: var(--thedev-touch-min);
+  display: flex;
+  align-items: center;
+}
+.thedev-feedback-msg.success {
+  background: hsla(140, 40%, 30%, 0.4);
+  color: var(--thedev-success);
+  border: 1px solid var(--thedev-success);
+}
+.thedev-feedback-msg.error {
+  background: hsla(340, 40%, 30%, 0.3);
+  color: var(--thedev-error);
+  border: 1px solid var(--thedev-error);
+}

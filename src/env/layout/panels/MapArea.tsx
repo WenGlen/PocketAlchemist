@@ -1,14 +1,14 @@
+/**
+ * 地圖基底：僅負責視埠、鏡頭、移動操作與點擊座標轉換。
+ * 不控管任何內容物（NPC／資源／怪物／障礙物）；內容由 useMapContent 產出，以 children 傳入。
+ */
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { interactionConfig } from '../../../config/interactionConfig';
 import { getMap } from '../../map/data/maps';
 import { ControlRing } from '../controls/ControlRing';
-import { NpcView } from '../../../objects/npc/NpcView';
-import { objectTable } from '../../../objects/data/objectTable';
-import { resourceNodes } from '../../../objects/data/resourceNodes';
-import { ResourceNodeView } from '../../../objects/resource/ResourceNodeView';
+import type { HitTestTargets, MapEntityType } from './useMapContent';
 
-const MAP_NPCS = [objectTable['OBJ-npc-001']!];
-const MAP_RESOURCES = resourceNodes;
+export type { MapEntityType };
 
 function normalize(x: number, y: number): { x: number; y: number } {
   const len = Math.hypot(x, y);
@@ -16,26 +16,26 @@ function normalize(x: number, y: number): { x: number; y: number } {
   return { x: x / len, y: y / len };
 }
 
-interface MapAreaProps {
+function hitTest(worldX: number, worldY: number, targets: { id: string; x: number; y: number; radius: number }[]): string | null {
+  for (const t of targets) {
+    if (Math.hypot(worldX - t.x, worldY - t.y) <= t.radius) return t.id;
+  }
+  return null;
+}
+
+export interface MapAreaProps {
   mapId: string;
   playerPosition: { x: number; y: number };
   controlRing: { visible: boolean; screenX: number; screenY: number };
   mapLocked: boolean;
-  /** 目前移動向量（控制環 UI 使用） */
   moveDirection: { x: number; y: number };
   onShowControlRing: (screenX: number, screenY: number) => void;
   onHideControlRing: () => void;
   onMoveDirection: (dir: { x: number; y: number }) => void;
-  onTapNpc: (npcId: string) => void;
-  onTapResource?: (nodeId: string) => void;
-  /** 茶樹剩餘可採次數（0 = 已採完，顯示 disabled） */
-  teaTreeRemaining: number;
-  /** 拖曳時游標下的資源點 id，用於高亮可放置 */
-  dropTargetResourceId?: string | null;
-  /** 每次採集茶葉時遞增，用於連續觸發晃動與浮動文字 */
-  teaTreeGatherKey?: number;
-  /** 剛裝水成功，湖播回饋 + 浮動文字 */
-  lakeJustFilled?: boolean;
+  /** 點擊判定用：依 type 順序 npc → resource → monster → terrain 做 hit test */
+  hitTestTargets: HitTestTargets;
+  onTap: (type: MapEntityType, id: string) => void;
+  children: React.ReactNode;
 }
 
 export function MapArea({
@@ -47,12 +47,9 @@ export function MapArea({
   onShowControlRing,
   onHideControlRing,
   onMoveDirection,
-  onTapNpc,
-  onTapResource,
-  teaTreeRemaining,
-  dropTargetResourceId = null,
-  teaTreeGatherKey = 0,
-  lakeJustFilled = false,
+  hitTestTargets,
+  onTap,
+  children,
 }: MapAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pointerDown, setPointerDown] = useState<{
@@ -82,7 +79,6 @@ export function MapArea({
   if (!mapData) return null;
 
   const { width: mapW, height: mapH } = mapData;
-
   const cameraX = Math.max(
     0,
     Math.min(mapW - viewportSize.w, playerPosition.x - viewportSize.w / 2)
@@ -103,33 +99,6 @@ export function MapArea({
       };
     },
     [cameraX, cameraY, getRect]
-  );
-
-  const hitTestNpc = useCallback((worldX: number, worldY: number): string | null => {
-    for (const npc of MAP_NPCS) {
-      const r = npc.radius ?? 24;
-      if (Math.hypot(worldX - npc.x, worldY - npc.y) <= r) return npc.id;
-    }
-    return null;
-  }, []);
-
-  const hitTestResource = useCallback((worldX: number, worldY: number): string | null => {
-    for (const node of MAP_RESOURCES) {
-      if (Math.hypot(worldX - node.x, worldY - node.y) <= node.radius) return node.id;
-    }
-    return null;
-  }, []);
-
-  const range = interactionConfig.interactionRange;
-  const isNpcInRange = useCallback(
-    (npc: (typeof MAP_NPCS)[number]) =>
-      Math.hypot(playerPosition.x - npc.x, playerPosition.y - npc.y) <= range,
-    [playerPosition.x, playerPosition.y, range]
-  );
-  const isResourceInRange = useCallback(
-    (node: (typeof MAP_RESOURCES)[number]) =>
-      Math.hypot(playerPosition.x - node.x, playerPosition.y - node.y) <= range,
-    [playerPosition.x, playerPosition.y, range]
   );
 
   const handlePointerDown = useCallback(
@@ -157,7 +126,6 @@ export function MapArea({
       const dx = curX - pointerDown.x;
       const dy = curY - pointerDown.y;
       const dist = Math.hypot(dx, dy);
-
       if (dist >= interactionConfig.tapMoveThreshold) {
         if (!ringShownThisGesture) {
           onShowControlRing(pointerDown.x, pointerDown.y);
@@ -188,38 +156,29 @@ export function MapArea({
         onMoveDirection({ x: 0, y: 0 });
       } else if (dist < interactionConfig.tapMoveThreshold) {
         const world = screenToWorld(e.clientX, e.clientY);
-        const npcId = hitTestNpc(world.x, world.y);
-        const resourceId = hitTestResource(world.x, world.y);
-        const npc = npcId ? MAP_NPCS.find((n) => n.id === npcId) : null;
-        const resource = resourceId ? MAP_RESOURCES.find((n) => n.id === resourceId) : null;
-        const npcCanInteract = npc && isNpcInRange(npc);
-        const resourceCanInteract =
-          resource &&
-          isResourceInRange(resource) &&
-          (resource.kind !== 'tea_tree' || teaTreeRemaining > 0);
-        if (npcId && npcCanInteract) onTapNpc(npcId);
-        else if (resourceId && resourceCanInteract && onTapResource) onTapResource(resourceId);
+        const npcId = hitTest(world.x, world.y, hitTestTargets.npcs);
+        if (npcId) {
+          onTap('npc', npcId);
+        } else {
+          const resourceId = hitTest(world.x, world.y, hitTestTargets.resources);
+          if (resourceId) {
+            onTap('resource', resourceId);
+          } else {
+            const monsterId = hitTest(world.x, world.y, hitTestTargets.monsters);
+            if (monsterId) {
+              onTap('monster', monsterId);
+            } else {
+              const terrainId = hitTest(world.x, world.y, hitTestTargets.terrains);
+              if (terrainId) onTap('terrain', terrainId);
+            }
+          }
+        }
       }
 
       setPointerDown(null);
       setRingShownThisGesture(false);
     },
-    [
-      pointerDown,
-      ringShownThisGesture,
-      getRect,
-      screenToWorld,
-      hitTestNpc,
-      onHideControlRing,
-      onMoveDirection,
-      onShowControlRing,
-      onTapNpc,
-      onTapResource,
-      hitTestResource,
-      isNpcInRange,
-      isResourceInRange,
-      teaTreeRemaining,
-    ]
+    [pointerDown, ringShownThisGesture, getRect, screenToWorld, hitTestTargets, onHideControlRing, onMoveDirection, onTap]
   );
 
   const handleRingPointerDown = (e: React.PointerEvent) => e.stopPropagation();
@@ -255,17 +214,24 @@ export function MapArea({
       onPointerCancel={handlePointerUp}
       style={{ touchAction: 'none' }}
     >
-      {/* 地圖世界層：固定 1600x1200，用 transform 做鏡頭位移 */}
       <div
         className="absolute top-0 left-0 will-change-transform"
         style={{
           width: mapW,
           height: mapH,
           transform: `translate(${-cameraX}px, ${-cameraY}px)`,
-          background: `linear-gradient(180deg, var(--color-map-grass-top) 0%, var(--color-map-grass-mid) 50%, var(--color-map-grass-bottom) 100%)`,
+          background: 'var(--color-map-bg)',
         }}
       >
-        {/* 主角：使用 index 預設 primary 色 + 外框 */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url("https://www.transparenttextures.com/patterns/fresh-snow.png"), linear-gradient(180deg, var(--color-map-grass-top) 0%, var(--color-map-grass-mid) 50%, var(--color-map-grass-bottom) 100%)`,
+            backgroundRepeat: 'repeat, no-repeat',
+            backgroundSize: 'auto, 100% 100%',
+            opacity: 0.25,
+          }}
+        />
         <div
           className="absolute rounded-full border-[3px] bg-[var(--color-player-bg)] border-[var(--color-player-border)]"
           style={{
@@ -277,46 +243,7 @@ export function MapArea({
           }}
           title="主角"
         />
-        {MAP_NPCS.map((npc) => (
-          <NpcView key={npc.id} npc={npc} inRange={isNpcInRange(npc)} />
-        ))}
-        {MAP_RESOURCES.map((node) => (
-          <ResourceNodeView
-            key={node.id}
-            node={node}
-            inRange={isResourceInRange(node)}
-            disabled={node.kind === 'tea_tree' && teaTreeRemaining === 0}
-            highlightAsDropTarget={dropTargetResourceId === node.id}
-            playShake={node.kind === 'tea_tree' && teaTreeGatherKey > 0}
-            shakeKey={node.kind === 'tea_tree' ? teaTreeGatherKey : 0}
-            playRipple={node.kind === 'lake' && lakeJustFilled}
-          />
-        ))}
-        {teaTreeGatherKey > 0 && (() => {
-          const node = MAP_RESOURCES.find((n) => n.kind === 'tea_tree');
-          if (!node) return null;
-          return (
-            <div
-              key={teaTreeGatherKey}
-              className="absolute pointer-events-none text-[var(--color-text-success)] text-sm font-medium animate-float-text whitespace-nowrap"
-              style={{ left: node.x - 24, top: node.y - node.radius - 28 }}
-            >
-              +1 茶葉
-            </div>
-          );
-        })()}
-        {lakeJustFilled && (() => {
-          const node = MAP_RESOURCES.find((n) => n.kind === 'lake');
-          if (!node) return null;
-          return (
-            <div
-              className="absolute pointer-events-none text-[var(--color-secondary)] text-sm font-medium animate-float-text whitespace-nowrap"
-              style={{ left: node.x - 28, top: node.y - node.radius - 28 }}
-            >
-              裝水成功
-            </div>
-          );
-        })()}
+        {children}
       </div>
 
       <ControlRing

@@ -1,27 +1,40 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useGameState } from './useGameState';
 import { useBackpack } from '../items/inventory/useBackpack';
 import { TopBar } from '../env/layout/panels/TopBar';
+import { StatsBar } from '../env/layout/panels/StatsBar';
 import { MapArea } from '../env/layout/panels/MapArea';
+import { useMapContent } from '../env/layout/panels/useMapContent';
 import { BottomInventory } from '../env/layout/panels/BottomInventory';
 import { DialoguePanel } from '../objects/npc/DialoguePanel';
-import { getObject } from '../objects/data/objectTable';
-import { ITM_MAT_0001 } from '../items/data/itemTable';
+import { getObject, getResourceNode, getResourceNodesRequiringItem, getGatherLimitForNode, getLabTerrain } from '../objects/data/objectsTable';
+import { ITM_MAT_0001, getItem } from '../items/data/itemTable';
 import type { SlotItem } from '../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../items/inventory/Backpack';
-import { QST_MAIN_001 } from '../quests/data/questData';
-import { getResourceNode } from '../objects/data/resourceNodes';
+import { QST_MAIN_001, getQuest, getCurrentStep, getBubbleDisplay, getCompleteMessage, getStartStep } from '../quests/data/questData';
 import { interactionConfig } from '../config/interactionConfig';
+import { getDisplayStats } from '../config/statsConfig';
+import { missionList } from '../quests/data/missionList';
 
 const PLACE_FEEDBACK_MS = 180;
 const QUEST_CELEBRATION_MS = 2200;
-const RESOURCE_FEEDBACK_MS = 800;
+
+/** 初始背包：玻璃瓶不可堆疊，每瓶一格 */
+function getInitialSlotsForMap(_mapId: string): { itemId: string; count: number }[] {
+  const bottle = { itemId: ITM_MAT_0001.id, count: 1 };
+  return [bottle, bottle];
+}
 
 export function GameScreen() {
   const game = useGameState();
+  const initialSlots = useMemo(
+    () => getInitialSlotsForMap(game.mapId),
+    [game.mapId, game.missionResetKey]
+  );
   const backpack = useBackpack({
     capacity: 10,
-    initialSlots: [{ itemId: ITM_MAT_0001.id, count: 1 }, { itemId: ITM_MAT_0001.id, count: 1 }],
+    initialSlots,
+    resetKey: game.missionResetKey,
   });
 
   const [synthesisSlots, setSynthesisSlots] = useState<(SlotItem | null)[]>([null, null]);
@@ -30,13 +43,20 @@ export function GameScreen() {
   const [dropTarget, setDropTarget] = useState<DropTargetFromBackpack>(null);
   const [lastPlacedSlotIndex, setLastPlacedSlotIndex] = useState<number | null>(null);
   const [justCrafted, setJustCrafted] = useState(false);
-  const [teaTreeGatherKey, setTeaTreeGatherKey] = useState(0);
-  const [lakeJustFilled, setLakeJustFilled] = useState(false);
   const [showQuestCompleteCelebration, setShowQuestCompleteCelebration] = useState(false);
   const synthesisSlotsRef = useRef(synthesisSlots);
   synthesisSlotsRef.current = synthesisSlots;
   const backpackRef = useRef(backpack);
   backpackRef.current = backpack;
+
+  // 切換／重新開始任務時重置本畫面狀態
+  useEffect(() => {
+    setSynthesisSlots([null, null]);
+    setSynthesisExpanded(false);
+    setDeliveryMessage(null);
+    setDropTarget(null);
+    setShowQuestCompleteCelebration(false);
+  }, [game.missionResetKey]);
 
   // 跟 NPC 對話或移動時強制收合合成視窗，並把合成欄位內道具歸還背包（不依賴 backpack 避免無限迴圈）
   useEffect(() => {
@@ -50,19 +70,26 @@ export function GameScreen() {
   }, [game.moveDirection.x, game.moveDirection.y]);
 
   const npc = game.dialogueNpcId ? getObject(game.dialogueNpcId) : null;
-  const quest = QST_MAIN_001;
+  const quest = getQuest(game.selectedQuestId) ?? QST_MAIN_001;
+  const currentStep = getCurrentStep(quest, game.questStepIndex);
+  const bubble = getBubbleDisplay(quest, game.questPhase, game.questStepIndex, currentStep);
 
-  const lakeNode = getResourceNode('OBJ-res-002');
-  const distToLake =
-    lakeNode && game.playerPosition
-      ? Math.hypot(
-          game.playerPosition.x - lakeNode.x,
-          game.playerPosition.y - lakeNode.y
-        )
-      : Infinity;
-  const nearLake = distToLake <= interactionConfig.interactionRange;
-  const highlightItemId =
-    nearLake && backpack.hasItem(ITM_MAT_0001.id) ? ITM_MAT_0001.id : null;
+  // 依資源點定義統一判斷：需道具互動的節點（如湖邊、水源）用 interactionRange，有對應道具即高亮
+  const range = interactionConfig.interactionRange;
+  const nodesRequiringItem = getResourceNodesRequiringItem(game.mapId);
+  const nodeToHighlight = game.playerPosition && nodesRequiringItem.find((node) => {
+    const dist = Math.hypot(
+      game.playerPosition!.x - node.x,
+      game.playerPosition!.y - node.y
+    );
+    return dist <= range && node.requireItemId != null && backpack.hasItem(node.requireItemId);
+  });
+  const highlightItemId = nodeToHighlight?.requireItemId ?? null;
+
+  const displayStats = useMemo(
+    () => getDisplayStats(game.mapId, { hp: game.hp, hpMax: game.hpMax }),
+    [game.mapId, game.hp, game.hpMax]
+  );
 
   const handleShowControlRing = (x: number, y: number) => {
     game.showControlRing(x, y);
@@ -79,6 +106,8 @@ export function GameScreen() {
 
   const handleTapNpc = (npcId: string) => {
     flushSynthesisToBackpackAndClose();
+    if (game.questPhase === 'none' && quest && npcId !== getStartStep(quest)?.entityId) return;
+    if (game.questPhase === 'completed' && quest) return;
     game.openDialogue(npcId);
   };
 
@@ -114,12 +143,6 @@ export function GameScreen() {
   }, [lastPlacedSlotIndex]);
 
   useEffect(() => {
-    if (!lakeJustFilled) return;
-    const t = setTimeout(() => setLakeJustFilled(false), RESOURCE_FEEDBACK_MS);
-    return () => clearTimeout(t);
-  }, [lakeJustFilled]);
-
-  useEffect(() => {
     if (!showQuestCompleteCelebration) return;
     const t = setTimeout(() => setShowQuestCompleteCelebration(false), QUEST_CELEBRATION_MS);
     return () => clearTimeout(t);
@@ -130,11 +153,13 @@ export function GameScreen() {
     const synth = el?.closest('[data-synthesis-slot]');
     const delivery = el?.closest('[data-delivery-zone]');
     const resource = el?.closest('[data-resource-drop]');
+    const terrain = el?.closest('[data-terrain-drop]');
     const slot = el?.closest('[data-slot-index]');
     if (synth) {
       const i = parseInt(synth.getAttribute('data-synthesis-slot-index') ?? '0', 10);
       setDropTarget({ type: 'synthesis', index: i });
     } else if (delivery) setDropTarget({ type: 'delivery' });
+    else if (terrain) setDropTarget({ type: 'terrain', id: terrain.getAttribute('data-terrain-drop') ?? '' });
     else if (resource) setDropTarget({ type: 'resource', id: resource.getAttribute('data-resource-drop') ?? '' });
     else if (slot) setDropTarget({ type: 'backpack', index: parseInt(slot.getAttribute('data-slot-index') ?? '-1', 10) });
     else setDropTarget(null);
@@ -151,7 +176,9 @@ export function GameScreen() {
       const synthSlot = el?.closest('[data-synthesis-slot]');
       const deliveryZone = el?.closest('[data-delivery-zone]');
       const resourceDrop = el?.closest('[data-resource-drop]');
+      const terrainDrop = el?.closest('[data-terrain-drop]');
       const resourceId = resourceDrop?.getAttribute('data-resource-drop');
+      const terrainId = terrainDrop?.getAttribute('data-terrain-drop');
 
       if (synthSlot) {
         const slotIndex = parseInt(
@@ -164,28 +191,52 @@ export function GameScreen() {
         backpack.removeItem(backpackSlotIndex, 1);
       }
 
-      if (deliveryZone && game.questPhase === 'accepted' && quest) {
-        if (item.itemId === quest.deliverItemId) {
-          game.completeQuest();
+      if (deliveryZone && game.questPhase === 'accepted' && quest && currentStep?.type === 'deliver_to' && currentStep.entityId === game.dialogueNpcId) {
+        if (item.itemId === currentStep.itemId) {
           backpack.removeItem(backpackSlotIndex, 1);
           setDeliveryMessage(null);
-          setShowQuestCompleteCelebration(true);
+          game.advanceQuestStep();
         } else {
-          setDeliveryMessage('這不是我要的，請拿「不好喝的茶」來。');
+          setDeliveryMessage(currentStep.wrongItemMessage ?? '不是這個。');
         }
       }
 
-      // 拖曳玻璃瓶到湖裡裝水（僅支援拖曳；須在互動範圍內）
-      if (resourceId && nearLake) {
+      // 拖曳藥劑到需清除的地形
+      if (terrainId && interactionConfig.obstacleUseMode === 'drag') {
+        const t = getLabTerrain(terrainId);
+        if (t?.requiredItemId && item.itemId === t.requiredItemId) {
+          game.clearTerrain(terrainId);
+          backpack.removeItem(backpackSlotIndex, 1);
+        }
+      }
+
+      // 拖曳道具到資源點交換（須在互動範圍內）；依節點 requireItemEffectId、exchangeFloatText 觸發特效
+      if (resourceId) {
         const node = getResourceNode(resourceId);
-        if (node?.kind === 'lake' && node.requireItemId && item.itemId === node.requireItemId && node.resultItemId) {
+        const inRange =
+          node &&
+          Math.hypot(game.playerPosition.x - node.x, game.playerPosition.y - node.y) <=
+            interactionConfig.interactionRange;
+        if (
+          inRange &&
+          node &&
+          node.acquisitionType === 'exchange' &&
+          node.requireItemId &&
+          item.itemId === node.requireItemId &&
+          node.resultItemId
+        ) {
           backpack.removeItem(backpackSlotIndex, 1);
           backpack.addItem(node.resultItemId, 1);
-          setLakeJustFilled(true);
+          if (node.requireItemEffectId) {
+            game.recordResourceGather(node.id, {
+              effectId: node.requireItemEffectId,
+              label: node.exchangeFloatText ?? '完成',
+            });
+          }
         }
       }
     },
-    [backpack, game.questPhase, game, quest, synthesisSlots, setSynthesisSlot, nearLake]
+    [backpack, game, quest, currentStep, game.questStepIndex, game.dialogueNpcId, synthesisSlots, setSynthesisSlot, game.playerPosition.x, game.playerPosition.y]
   );
 
   const handleDragEndFromSynthesis = useCallback(
@@ -208,20 +259,94 @@ export function GameScreen() {
   const handleTapResource = useCallback(
     (nodeId: string) => {
       const node = getResourceNode(nodeId);
-      if (!node) return;
-      if (node.kind === 'tea_tree' && game.getTeaTreeRemaining() > 0) {
-        game.tryGatherTea();
-        backpack.addItem(node.gatherItemId!, 1);
-        setTeaTreeGatherKey((k) => k + 1);
+      if (!node || node.acquisitionType !== 'tap' || !node.gatherItemId) return;
+      const limit = getGatherLimitForNode(node, game.mapId);
+      const remaining = limit != null ? game.getResourceRemaining(node.id) : undefined;
+      if (limit != null && (remaining ?? limit) <= 0) return;
+      if (node.kind === 'herb' && interactionConfig.materialPickupMode !== 'tap') return;
+      if (node.gatherEffectId) {
+        game.recordResourceGather(node.id, {
+          effectId: node.gatherEffectId,
+          label: node.gatherFloatText ?? `+1 ${getItem(node.gatherItemId)?.name ?? '素材'}`,
+          gatherLimit: limit,
+        });
       }
+      backpack.addItem(node.gatherItemId, 1);
     },
     [game, backpack]
+  );
+
+  const handleTapMonster = useCallback(() => game.tryStunMonster(), [game]);
+  const handleTapTerrain = useCallback(
+    (terrainId: string) => {
+      if (interactionConfig.obstacleUseMode !== 'tap') return;
+      const t = getLabTerrain(terrainId);
+      if (!t?.requiredItemId) return;
+      const idx = backpack.slots.findIndex((s) => s?.itemId === t.requiredItemId);
+      if (idx < 0) return;
+      game.clearTerrain(terrainId);
+      backpack.removeItem(idx, 1);
+    },
+    [game, backpack]
+  );
+
+  /** 對話窗內點「領取」：完成當前 receive_from 步驟（發放道具並推進步驟） */
+  const handleReceiveFromStep = useCallback(() => {
+    if (game.questPhase !== 'accepted' || !quest || currentStep?.type !== 'receive_from' || currentStep.entityId !== game.dialogueNpcId) return;
+    backpack.addItem(currentStep.itemId, currentStep.count ?? 1);
+    game.advanceQuestStep();
+  }, [game, quest, currentStep, game.dialogueNpcId, backpack]);
+
+  // 進入「結束任務」步驟時觸發完成彈窗
+  useEffect(() => {
+    if (game.questPhase !== 'accepted' || !quest || currentStep?.type !== 'complete') return;
+    game.setQuestPhase('completed');
+    setShowQuestCompleteCelebration(true);
+  }, [game.questPhase, quest, currentStep?.type, game]);
+
+  const monsterStunned = game.monsterStunUntil > Date.now();
+
+  const handleMapTap = useCallback(
+    (type: 'npc' | 'resource' | 'monster' | 'terrain', id: string) => {
+      if (type === 'npc') handleTapNpc(id);
+      else if (type === 'resource') handleTapResource(id);
+      else if (type === 'monster') handleTapMonster();
+      else if (type === 'terrain') handleTapTerrain(id);
+    },
+    [handleTapNpc, handleTapResource, handleTapMonster, handleTapTerrain]
+  );
+
+  const { hitTestTargets, content } = useMapContent(
+    {
+      mapId: game.mapId,
+      playerPosition: game.playerPosition,
+      interactionRange: interactionConfig.interactionRange,
+      resourceRemaining: game.resourceRemaining,
+      lastResourceFeedback: game.lastResourceFeedback,
+      dropTargetResourceId: dropTarget?.type === 'resource' ? dropTarget.id : null,
+      dropTargetTerrainId: dropTarget?.type === 'terrain' ? dropTarget.id : null,
+      terrainClearedIds: game.terrainClearedIds,
+      monsterPositions: game.monsterPositions,
+      monsterStunned,
+      acceptFromEntityId: getStartStep(quest)?.entityId ?? null,
+      questPhase: game.questPhase,
+      bubbleEntityId: bubble?.entityId ?? null,
+      bubbleItemId: bubble?.itemId ?? null,
+      bubbleLabel: bubble?.label ?? null,
+    },
+    { onTap: handleMapTap }
   );
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-[var(--color-bg)]">
       <div className="game-layout flex flex-col">
-        <TopBar />
+        <TopBar
+          currentMapId={game.mapId}
+          currentQuestId={game.selectedQuestId}
+          missions={missionList}
+          onSelectMission={game.selectMission}
+        />
+        <StatsBar stats={displayStats} />
         <div className="flex flex-col flex-1 min-h-0 relative">
           <MapArea
             mapId={game.mapId}
@@ -232,18 +357,29 @@ export function GameScreen() {
             onShowControlRing={handleShowControlRing}
             onHideControlRing={game.hideControlRing}
             onMoveDirection={game.setMoveDirection}
-            onTapNpc={handleTapNpc}
-            onTapResource={handleTapResource}
-            teaTreeRemaining={game.getTeaTreeRemaining()}
-            dropTargetResourceId={dropTarget?.type === 'resource' ? dropTarget.id : null}
-            teaTreeGatherKey={teaTreeGatherKey}
-            lakeJustFilled={lakeJustFilled}
-          />
-          {/* 對話時地圖半透明黑色遮罩，擋住地圖操作 */}
+            hitTestTargets={hitTestTargets}
+            onTap={handleMapTap}
+          >
+            {content}
+          </MapArea>
+          {/* 對話時地圖半透明黑色遮罩；點擊等同關閉對話 */}
           {game.dialogueOpen && (
             <div
-              className="absolute inset-0 bg-black/50 z-30 pointer-events-auto"
+              className="absolute inset-0 bg-black/50 z-30 pointer-events-auto cursor-pointer"
               aria-hidden
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                game.closeDialogue();
+                setDeliveryMessage(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  game.closeDialogue();
+                  setDeliveryMessage(null);
+                }
+              }}
             />
           )}
           {/* 對話時左側人物立繪站位（暫用半透明方塊 + 名稱）；外層 w-full 讓內層 50% 有可參照的寬度 */}
@@ -266,7 +402,13 @@ export function GameScreen() {
               }}
               questPhase={game.questPhase}
               quest={quest}
+              currentStep={currentStep}
+              dialogueNpcId={game.dialogueNpcId}
+              acceptFromEntityId={getStartStep(quest)?.entityId ?? null}
+              acceptText={getStartStep(quest)?.acceptText ?? null}
+              completeMessage={getCompleteMessage(quest) ?? null}
               onAcceptQuest={game.acceptQuest}
+              onReceiveFromStep={handleReceiveFromStep}
               deliveryZoneHighlight={dropTarget?.type === 'delivery'}
             />
           )}
@@ -292,22 +434,109 @@ export function GameScreen() {
           onSlotPlaced={(toIndex) => setLastPlacedSlotIndex(toIndex)}
           highlightItemId={highlightItemId}
           synthesisExpanded={synthesisExpanded}
-          onSynthesisExpandedChange={(expanded) =>
-            expanded ? setSynthesisExpanded(true) : flushSynthesisToBackpackAndClose()
-          }
-          synthesisButtonDisabled={game.dialogueOpen}
+          onSynthesisExpandedChange={(expanded) => {
+            if (expanded) {
+              if (game.dialogueOpen) {
+                game.closeDialogue();
+                setDeliveryMessage(null);
+              }
+              setSynthesisExpanded(true);
+            } else {
+              flushSynthesisToBackpackAndClose();
+            }
+          }}
           justCrafted={justCrafted}
         />
       </div>
 
       {showQuestCompleteCelebration && quest && (
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center pointer-events-none"
-          aria-hidden
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          aria-label="關閉任務完成"
+          onClick={() => setShowQuestCompleteCelebration(false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setShowQuestCompleteCelebration(false);
+            }
+          }}
         >
-          <div className="animate-quest-complete rounded-xl bg-[var(--color-panel)] border-2 border-[var(--color-primary)] px-8 py-6 shadow-lg flex flex-col items-center gap-2">
+          <div
+            className="animate-quest-complete rounded-xl bg-[var(--color-panel)] border-2 border-[var(--color-primary)] px-8 py-6 shadow-lg flex flex-col items-center gap-2 cursor-default relative"
+            role="dialog"
+            aria-label="任務完成"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowQuestCompleteCelebration(false)}
+              className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-panel-muted)] hover:text-[var(--color-text-default)] text-lg leading-none transition-colors"
+              aria-label="關閉"
+            >
+              ×
+            </button>
             <span className="text-xl font-bold text-[var(--color-primary)]">任務完成</span>
             <span className="text-sm text-[var(--color-text-default)]">{quest.name}</span>
+          </div>
+        </div>
+      )}
+
+      {/* MVP-01：成功 / 失敗結算 */}
+      {game.gameOutcome === 'success' && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          aria-label="關閉"
+          onClick={() => game.dismissOutcome()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              game.dismissOutcome();
+            }
+          }}
+        >
+          <div
+            className="rounded-xl bg-[var(--color-panel)] border-2 border-[var(--color-primary)] px-8 py-6 shadow-lg flex flex-col items-center gap-2 cursor-default relative"
+            role="dialog"
+            aria-label="成功"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => game.dismissOutcome()}
+              className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-panel-muted)] hover:text-[var(--color-text-default)] text-lg leading-none transition-colors"
+              aria-label="關閉"
+            >
+              ×
+            </button>
+            <span className="text-xl font-bold text-[var(--color-primary)]">成功</span>
+            <span className="text-sm text-[var(--color-text-default)]">任務完成</span>
+          </div>
+        </div>
+      )}
+      {game.gameOutcome === 'fail' && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40"
+          role="dialog"
+          aria-modal="true"
+          aria-label="失敗"
+        >
+          <div
+            className="rounded-xl bg-[var(--color-panel)] border-2 border-[var(--color-text-error)] px-8 py-6 shadow-lg flex flex-col items-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-xl font-bold text-[var(--color-text-error)]">失敗</span>
+            <span className="text-sm text-[var(--color-text-default)]">HP 歸零</span>
+            <button
+              type="button"
+              onClick={() => game.selectMission(game.mapId, game.selectedQuestId)}
+              className="mt-2 px-6 py-2.5 rounded-lg bg-[var(--color-primary)] text-white font-medium hover:opacity-90 transition-opacity"
+            >
+              重新開始
+            </button>
           </div>
         </div>
       )}

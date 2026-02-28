@@ -1,5 +1,6 @@
 /**
- * 合成配方：素材 ID 陣列（順序不拘）→ 產物
+ * 合成配方：素材 ID 陣列（順序不拘）→ 產物。
+ * 所有 itemId 以 items/data/itemTable 為準，勿重複定義。
  */
 export interface Recipe {
   id: string;
@@ -16,6 +17,22 @@ export const recipes: Recipe[] = [
       { itemId: 'ITM-mat-0003', count: 1 },
     ],
     result: { itemId: 'ITM-pot-0001', count: 1 },
+  },
+  {
+    id: 'heal-potion',
+    ingredients: [
+      { itemId: 'ITM-mat-0004', count: 1 },
+      { itemId: 'ITM-mat-0003', count: 1 },
+    ],
+    result: { itemId: 'ITM-pot-0002', count: 1 },
+  },
+  {
+    id: 'bomb-potion',
+    ingredients: [
+      { itemId: 'ITM-mat-0006', count: 1 },
+      { itemId: 'ITM-mat-0003', count: 1 },
+    ],
+    result: { itemId: 'ITM-pot-0003', count: 1 },
   },
 ];
 
