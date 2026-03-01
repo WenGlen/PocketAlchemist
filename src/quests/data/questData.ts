@@ -55,6 +55,11 @@ export interface QuestDef {
   name: string;
   /** 供任務清單等使用，最外層只保留基本編號與描述 */
   description?: string;
+  /**
+   * 串鏈前置任務 ID：只有在指定任務已完成後，此任務才對玩家開放。
+   * 未設時代表隨時可接。isQuestUnlocked() 會依 completedQuestIds 判斷。
+   */
+  prerequisiteQuestId?: string;
   /** 步驟陣列：第一項為 type 'start'（承接），其後為任務步驟，最後可為 type 'complete' */
   steps: QuestStep[];
 }
@@ -130,7 +135,7 @@ export const QST_MAIN_001: QuestDef = {
       wrongItemMessage: '不是這個，我要的是茶。',
       message: '請把茶交付給茶攤老闆。',
     },
-    { type: 'complete', completeMessage: '任務完成！謝謝你的茶。' },
+    { type: 'complete', completeMessage: '你的茶不太好喝啊...但還是謝謝你的茶。' },
   ],
 };
 
@@ -167,11 +172,118 @@ export const QST_MAIN_002: QuestDef = {
   ],
 };
 
+// =============================================================================
+// MAP-field-002：幽林深處 三任務串鏈
+// =============================================================================
+
+/** 任務三：商旅的委托（MAP-field-002 入口，無前置） */
+export const QST_MAIN_003: QuestDef = {
+  id: 'QST-main-003',
+  name: '商旅的委托',
+  description: '旅行商人需要補給藥草。採集後交付即完成。',
+  steps: [
+    {
+      type: 'start',
+      entityId: 'OBJ-npc-004',
+      acceptText: '我的商隊需要補充藥草，能幫我在附近採一些嗎？',
+    },
+    {
+      type: 'deliver_to',
+      entityId: 'OBJ-npc-004',
+      itemId: 'ITM-mat-0004',
+      wrongItemMessage: '這不是藥草，我需要的是藥草。',
+      message: '採集藥草後交給旅行商人。',
+      bubbleEntityId: 'OBJ-npc-004',
+      bubbleItemId: 'ITM-mat-0004',
+    },
+    { type: 'complete', completeMessage: '謝謝！路上有需要可以再來找我，我常在這附近。' },
+  ],
+};
+
+/** 任務四：古茶樹的滋味（前置：QST-main-003） */
+export const QST_MAIN_004: QuestDef = {
+  id: 'QST-main-004',
+  name: '古茶樹的滋味',
+  description: '茶攤老闆想念古茶樹的茶香。採茶葉、裝水、合成後交付。',
+  prerequisiteQuestId: 'QST-main-003',
+  steps: [
+    {
+      type: 'start',
+      entityId: 'OBJ-npc-001',
+      acceptText: '你也來這片深林了！聽說這裡有棵古茶樹，幫我採茶葉、裝點山泉水，泡一杯好茶吧。',
+    },
+    {
+      type: 'deliver_to',
+      entityId: 'OBJ-npc-001',
+      itemId: 'ITM-pot-0001',
+      wrongItemMessage: '這不是茶，用茶葉和山泉水合成一杯茶再來。',
+      message: '採茶葉、用玻璃瓶裝山泉水，合成茶後交給茶攤老闆。',
+      bubbleEntityId: 'OBJ-npc-001',
+      bubbleItemId: 'ITM-pot-0001',
+    },
+    { type: 'complete', completeMessage: '古茶樹的茶果然不一樣，清香四溢！謝謝你的用心。' },
+  ],
+};
+
+/** 任務五：藥劑師的緊急訂單（前置：QST-main-004） */
+export const QST_MAIN_005: QuestDef = {
+  id: 'QST-main-005',
+  name: '緊急藥水訂單',
+  description: '藥劑師急需治療藥水。向旅行商人領取藥草，裝水後合成交付。',
+  prerequisiteQuestId: 'QST-main-004',
+  steps: [
+    {
+      type: 'start',
+      entityId: 'OBJ-npc-002',
+      acceptText: '有位旅人受傷了，急需治療藥水！先去找旅行商人拿藥草，再用山泉水合成藥水帶回來。',
+    },
+    {
+      type: 'receive_from',
+      entityId: 'OBJ-npc-004',
+      itemId: 'ITM-mat-0004',
+      count: 1,
+      message: '先去旅行商人那裡領取藥草。',
+      receiveMessage: '藥劑師說要藥草是吧？我正好有存貨，給你。',
+      receiveButtonText: '領取藥草',
+      dialogueByEntity: {
+        'OBJ-npc-002': ['快去旅行商人那裡拿藥草，再用山泉水合成治療藥水。'],
+      },
+      bubbleEntityId: 'OBJ-npc-004',
+      bubbleLabel: '領取藥草',
+    },
+    {
+      type: 'deliver_to',
+      entityId: 'OBJ-npc-002',
+      itemId: 'ITM-pot-0002',
+      wrongItemMessage: '這不對，我需要治療藥水（藥草 + 裝水玻璃瓶合成）。',
+      message: '用玻璃瓶裝山泉水，合成治療藥水後交給藥劑師。',
+      dialogueByEntity: {
+        'OBJ-npc-004': ['快去幫藥劑師合成治療藥水吧，別讓傷者等太久。'],
+      },
+      bubbleEntityId: 'OBJ-npc-002',
+      bubbleItemId: 'ITM-pot-0002',
+    },
+    { type: 'complete', completeMessage: '謝謝你的迅速！旅人得救了，你是幽林的英雄！' },
+  ],
+};
+
 export const questTable: Record<string, QuestDef> = {
   [QST_MAIN_001.id]: QST_MAIN_001,
   [QST_MAIN_002.id]: QST_MAIN_002,
+  [QST_MAIN_003.id]: QST_MAIN_003,
+  [QST_MAIN_004.id]: QST_MAIN_004,
+  [QST_MAIN_005.id]: QST_MAIN_005,
 };
 
 export function getQuest(id: string): QuestDef | undefined {
   return questTable[id];
+}
+
+/**
+ * 判斷任務是否已解鎖：無前置任務則永遠開放；有前置則需在 completedQuestIds 中。
+ * 供 TopBar 任務選單顯示鎖定狀態，以及 GameScreen 完成彈窗的「繼續下一個任務」按鈕使用。
+ */
+export function isQuestUnlocked(quest: QuestDef, completedQuestIds: string[]): boolean {
+  if (!quest.prerequisiteQuestId) return true;
+  return completedQuestIds.includes(quest.prerequisiteQuestId);
 }

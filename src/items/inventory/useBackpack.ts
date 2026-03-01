@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getItem } from '../data/itemTable';
+import { getItem } from '../data/itemsTable';
 
 export interface SlotItem {
   itemId: string;

@@ -1,4 +1,4 @@
-import { interactionConfig } from '../../../config/interactionConfig';
+import { interactionConfig } from '../../core/config/interactionConfig';
 
 interface ControlRingProps {
   visible: boolean;

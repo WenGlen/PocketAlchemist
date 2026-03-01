@@ -1,4 +1,6 @@
 import type { ResourceNodeDef } from '../data/objectsTable';
+import { ObjectView } from '../shared/ObjectView';
+import { debugConfig } from '../debugForObjects';
 
 interface ResourceNodeViewProps {
   node: ResourceNodeDef;
@@ -30,67 +32,106 @@ export function ResourceNodeView({
   onTap,
 }: ResourceNodeViewProps) {
   const r = node.radius;
+  const w = node.hitbox?.width ?? r * 2;
+  const h = node.hitbox?.height ?? w;
   const canInteract = inRange && !disabled;
-  const backgroundColor = node.mapColor ?? 'var(--color-secondary-50)';
+  const baseColor = node.mapColor ?? 'var(--color-secondary-50)';
+
+  // ── 定位圈視覺狀態 ──
+  let ringBgColor: string;
+  let ringBorderColor: string;
+  let ringShadow: string | undefined;
+  let ringOpacity: number;
+
+  if (disabled) {
+    ringBgColor = 'var(--color-panel-muted)';
+    ringBorderColor = 'var(--color-resource-disabled)';
+    ringShadow = undefined;
+    ringOpacity = 1;
+  } else if (highlightAsDropTarget) {
+    ringBgColor = 'var(--color-primary-25)';
+    ringBorderColor = 'var(--color-object-focus)';
+    ringShadow = '0 0 16px var(--color-primary-75)';
+    ringOpacity = 1;
+  } else if (canInteract) {
+    ringBgColor = baseColor;
+    ringBorderColor = 'var(--color-object-focus)';
+    ringShadow = '0 0 12px var(--color-primary-50)';
+    ringOpacity = 1;
+  } else {
+    ringBgColor = baseColor;
+    ringBorderColor = 'var(--color-resource-normal)';
+    ringShadow = undefined;
+    ringOpacity = 0.8;
+  }
+
   const titleText = disabled
     ? '已採完'
     : proximityBubbleText ?? (node.requireItemId ? '拖曳道具至此交換' : '可採集');
+
+  const showBubble = inRange && !disabled && !!proximityBubbleText;
+  const bubbleClickable = node.acquisitionType === 'tap';
+
+  // ── Debug：採集互動範圍圓（圓心下移 0.25h、半徑 = min(w,h)，與 hitTest 邏輯一致）
+  const hitRadius = Math.min(w, h);
+  const hitCX = node.x;
+  const hitCY = node.y + h * 0.25;
+
   return (
-    <div className="absolute flex flex-col items-center" style={{ left: node.x - r, top: node.y - r }}>
-      {inRange && !disabled && proximityBubbleText && (
-        node.acquisitionType === 'tap' ? (
-          <button
-            type="button"
-            className="absolute left-1/2 -translate-x-1/2 rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 cursor-pointer hover:bg-[var(--color-panel-hover)] hover:border-[var(--color-primary-hover)] active:scale-95 transition-colors"
-            style={{ top: r * 2 - 8 }}
-            onClick={(e) => { e.stopPropagation(); onTap?.(); }}
-          >
-            📦 {proximityBubbleText}
-          </button>
-        ) : (
+    <>
+      {debugConfig.showHitbox && (
+        <>
+          {/* 互動範圍圓：綠色虛線 */}
           <div
-            className="absolute left-1/2 -translate-x-1/2 rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 pointer-events-none"
-            style={{ top: r * 2 - 8 }}
+            className="absolute pointer-events-none"
+            style={{
+              left: hitCX - hitRadius,
+              top: hitCY - hitRadius,
+              width: hitRadius * 2,
+              height: hitRadius * 2,
+              borderRadius: '50%',
+              border: '1.5px dashed var(--color-resource-normal)',
+              zIndex: 19,
+            }}
             aria-hidden
-          >
-            📦 {proximityBubbleText}
-          </div>
-        )
+          />
+          {/* 圓心標記：綠色小點 */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: hitCX - 3,
+              top: hitCY - 3,
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: 'var(--color-resource-normal)',
+              zIndex: 19,
+            }}
+            aria-hidden
+          />
+        </>
       )}
-      {playRipple && (
-        <div
-          className="absolute rounded-full border-2 border-[var(--color-secondary)] animate-ripple-expand origin-center"
-          style={{
-            left: 0,
-            top: 0,
-            width: r * 2,
-            height: r * 2,
-            boxShadow: '0 0 12px var(--color-secondary-50)',
-          }}
-          aria-hidden
-        />
-      )}
-      <div
-        key={playShake ? shakeKey : 0}
-        data-resource-drop={node.id}
-        className={`rounded-full flex items-center justify-center text-xs font-medium transition-all flex-shrink-0 ${
-          disabled
-            ? 'opacity-50 border-2 border-[var(--color-resource-disabled)] bg-[var(--color-panel-muted)] text-[var(--color-text-muted)] cursor-not-allowed'
-            : highlightAsDropTarget
-              ? 'border-[3px] border-[var(--color-object-focus)] shadow-[0_0_16px_var(--color-primary-75)] bg-[var(--color-primary-25)] text-[var(--color-text-default)]'
-              : canInteract
-                ? 'border-[3px] border-[var(--color-object-focus)] shadow-[0_0_12px_var(--color-primary-50)] text-[var(--color-text-default)]'
-                : 'border-2 border-[var(--color-resource-normal)] opacity-80 text-[var(--color-text-default)]'
-        } ${playShake ? 'animate-resource-shake' : ''}`}
-        style={{
-          width: r * 2,
-          height: r * 2,
-          backgroundColor: disabled ? 'var(--color-panel-muted)' : backgroundColor,
-        }}
+      <ObjectView
+        x={node.x}
+        y={node.y}
+        width={w}
+        height={h}
+        cornerRadius={node.hitbox?.cornerRadius}
+        emoji={node.emoji}
+        displayName={node.displayName}
+        ringBgColor={ringBgColor}
+        ringBorderColor={ringBorderColor}
+        ringShadow={ringShadow}
+        ringOpacity={ringOpacity}
+        opacity={disabled ? 0.65 : undefined}
+        playShake={playShake}
+        shakeKey={shakeKey}
+        playRipple={playRipple}
+        bubbleText={showBubble ? proximityBubbleText : null}
+        bubbleClickable={bubbleClickable}
+        onBubbleClick={onTap}
         title={titleText}
-      >
-        {node.mapLabel}
-      </div>
-    </div>
+      />
+    </>
   );
 }

@@ -1,19 +1,20 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useGameState } from './useGameState';
+import { playSound } from '../assets/audio';
 import { useBackpack } from '../items/inventory/useBackpack';
-import { TopBar } from '../env/layout/panels/TopBar';
-import { StatsBar } from '../env/layout/panels/StatsBar';
-import { MapArea } from '../env/layout/panels/MapArea';
-import { useMapContent } from '../env/layout/panels/useMapContent';
-import { BottomInventory } from '../env/layout/panels/BottomInventory';
+import { TopBar } from './screen/TopBar';
+import { StatsBar } from './screen/StatsBar';
+import { MapArea, hitTest } from './screen/MapArea';
+import { useMapContent } from './screen/useMapContent';
+import { BottomInventory } from './screen/BottomInventory';
 import { DialoguePanel } from '../objects/npc/DialoguePanel';
 import { getObject, getResourceNode, getResourceNodesRequiringItem, getGatherLimitForNode, getLabTerrain } from '../objects/data/objectsTable';
-import { ITM_MAT_0001, getItem } from '../items/data/itemTable';
+import { ITM_MAT_0001, getItem } from '../items/data/itemsTable';
 import type { SlotItem } from '../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../items/inventory/Backpack';
 import { QST_MAIN_001, getQuest, getCurrentStep, getBubbleDisplay, getCompleteMessage, getStartStep } from '../quests/data/questData';
-import { interactionConfig } from '../config/interactionConfig';
-import { getDisplayStats } from '../config/statsConfig';
+import { interactionConfig } from '../core/config/interactionConfig';
+import { getDisplayStats } from './screen/statsConfig';
 import { missionList } from '../quests/data/missionList';
 
 const PLACE_FEEDBACK_MS = 180;
@@ -48,6 +49,9 @@ export function GameScreen() {
   synthesisSlotsRef.current = synthesisSlots;
   const backpackRef = useRef(backpack);
   backpackRef.current = backpack;
+  // 拖曳時需要與點擊相同的座標換算與判定目標，避免 stale closure
+  const screenToWorldRef = useRef<((clientX: number, clientY: number) => { x: number; y: number }) | null>(null);
+  const hitTestTargetsRef = useRef<{ resources: { id: string; x: number; y: number; radius: number }[] }>({ resources: [] });
 
   // 切換／重新開始任務時重置本畫面狀態
   useEffect(() => {
@@ -122,6 +126,7 @@ export function GameScreen() {
   const handleCraft = useCallback(
     (resultItemId: string, resultCount: number) => {
       backpack.addItem(resultItemId, resultCount);
+      playSound('synthesize');
       setJustCrafted(true);
     },
     [backpack]
@@ -152,15 +157,17 @@ export function GameScreen() {
     const el = document.elementFromPoint(clientX, clientY);
     const synth = el?.closest('[data-synthesis-slot]');
     const delivery = el?.closest('[data-delivery-zone]');
-    const resource = el?.closest('[data-resource-drop]');
     const terrain = el?.closest('[data-terrain-drop]');
     const slot = el?.closest('[data-slot-index]');
+    // 資源點改用世界座標圓形判定（與點擊判定完全相同，避免 DOM 堆疊造成 Y 方向偏小）
+    const world = screenToWorldRef.current?.(clientX, clientY);
+    const resourceId = world ? hitTest(world.x, world.y, hitTestTargetsRef.current.resources) : null;
     if (synth) {
       const i = parseInt(synth.getAttribute('data-synthesis-slot-index') ?? '0', 10);
       setDropTarget({ type: 'synthesis', index: i });
     } else if (delivery) setDropTarget({ type: 'delivery' });
     else if (terrain) setDropTarget({ type: 'terrain', id: terrain.getAttribute('data-terrain-drop') ?? '' });
-    else if (resource) setDropTarget({ type: 'resource', id: resource.getAttribute('data-resource-drop') ?? '' });
+    else if (resourceId) setDropTarget({ type: 'resource', id: resourceId });
     else if (slot) setDropTarget({ type: 'backpack', index: parseInt(slot.getAttribute('data-slot-index') ?? '-1', 10) });
     else setDropTarget(null);
   }, []);
@@ -175,10 +182,11 @@ export function GameScreen() {
       const el = document.elementFromPoint(clientX, clientY);
       const synthSlot = el?.closest('[data-synthesis-slot]');
       const deliveryZone = el?.closest('[data-delivery-zone]');
-      const resourceDrop = el?.closest('[data-resource-drop]');
       const terrainDrop = el?.closest('[data-terrain-drop]');
-      const resourceId = resourceDrop?.getAttribute('data-resource-drop');
       const terrainId = terrainDrop?.getAttribute('data-terrain-drop');
+      // 資源點改用世界座標圓形判定，與點擊判定完全一致
+      const world = screenToWorldRef.current?.(clientX, clientY);
+      const resourceId = world ? hitTest(world.x, world.y, hitTestTargetsRef.current.resources) : null;
 
       if (synthSlot) {
         const slotIndex = parseInt(
@@ -210,7 +218,7 @@ export function GameScreen() {
         }
       }
 
-      // 拖曳道具到資源點交換（須在互動範圍內）；依節點 requireItemEffectId、exchangeFloatText 觸發特效
+      // 拖曳道具到資源點交換（須在互動範圍內，且提示泡泡需顯示）；依節點 requireItemEffectId、exchangeFloatText 觸發特效
       if (resourceId) {
         const node = getResourceNode(resourceId);
         const inRange =
@@ -220,6 +228,7 @@ export function GameScreen() {
         if (
           inRange &&
           node &&
+          node.proximityBubbleText &&
           node.acquisitionType === 'exchange' &&
           node.requireItemId &&
           item.itemId === node.requireItemId &&
@@ -227,6 +236,7 @@ export function GameScreen() {
         ) {
           backpack.removeItem(backpackSlotIndex, 1);
           backpack.addItem(node.resultItemId, 1);
+          playSound('gather');
           if (node.requireItemEffectId) {
             game.recordResourceGather(node.id, {
               effectId: node.requireItemEffectId,
@@ -260,10 +270,15 @@ export function GameScreen() {
     (nodeId: string) => {
       const node = getResourceNode(nodeId);
       if (!node || node.acquisitionType !== 'tap' || !node.gatherItemId) return;
+      // 只有在提示泡泡顯示時（需 proximityBubbleText 且在互動範圍內）才允許採集
+      if (!node.proximityBubbleText) return;
+      const inRange = Math.hypot(game.playerPosition.x - node.x, game.playerPosition.y - node.y) <= interactionConfig.interactionRange;
+      if (!inRange) return;
       const limit = getGatherLimitForNode(node, game.mapId);
       const remaining = limit != null ? game.getResourceRemaining(node.id) : undefined;
       if (limit != null && (remaining ?? limit) <= 0) return;
-      if (node.kind === 'herb' && interactionConfig.materialPickupMode !== 'tap') return;
+      // 節點本身宣告 acquisitionType:'tap' 時直接允許；否則 herb 需由 config 啟用 tap 模式
+      if (node.kind === 'herb' && node.acquisitionType !== 'tap' && interactionConfig.materialPickupMode !== 'tap') return;
       if (node.gatherEffectId) {
         game.recordResourceGather(node.id, {
           effectId: node.gatherEffectId,
@@ -271,9 +286,10 @@ export function GameScreen() {
           gatherLimit: limit,
         });
       }
+      playSound('gather');
       backpack.addItem(node.gatherItemId, 1);
     },
-    [game, backpack]
+    [game, backpack, game.playerPosition.x, game.playerPosition.y]
   );
 
   const handleTapMonster = useCallback((monsterId: string) => game.tryStunMonster(monsterId), [game]);
@@ -297,14 +313,26 @@ export function GameScreen() {
     game.advanceQuestStep();
   }, [game, quest, currentStep, game.dialogueNpcId, backpack]);
 
-  // 進入「結束任務」步驟時觸發完成彈窗
+  // 進入「結束任務」步驟時：記錄完成、播音效、顯示彈窗
   useEffect(() => {
     if (game.questPhase !== 'accepted' || !quest || currentStep?.type !== 'complete') return;
     game.setQuestPhase('completed');
+    game.recordQuestCompletion(game.selectedQuestId);
+    playSound('success');
     setShowQuestCompleteCelebration(true);
   }, [game.questPhase, quest, currentStep?.type, game]);
 
   const monsterStunned = game.monsterStunUntil > Date.now();
+
+  // 取得當前任務完成後的下一個串鏈任務（有 prerequisiteQuestId 指向當前任務）
+  const nextMission = useMemo(
+    () =>
+      missionList.find((m) => {
+        const q = getQuest(m.questId);
+        return q?.prerequisiteQuestId === game.selectedQuestId;
+      }) ?? null,
+    [game.selectedQuestId]
+  );
 
   const handleMapTap = useCallback(
     (type: 'npc' | 'resource' | 'monster' | 'terrain', id: string) => {
@@ -340,6 +368,8 @@ export function GameScreen() {
     },
     { onTap: handleMapTap }
   );
+  // 每次 render 都即時更新，讓拖曳 handlers 能透過 ref 讀到最新的判定目標
+  hitTestTargetsRef.current = hitTestTargets;
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center bg-[var(--color-bg)]">
@@ -348,6 +378,7 @@ export function GameScreen() {
           currentMapId={game.mapId}
           currentQuestId={game.selectedQuestId}
           missions={missionList}
+          completedQuestIds={game.completedQuestIds}
           onSelectMission={game.selectMission}
         />
         <StatsBar stats={displayStats} />
@@ -363,6 +394,7 @@ export function GameScreen() {
             onMoveDirection={game.setMoveDirection}
             hitTestTargets={hitTestTargets}
             onTap={handleMapTap}
+            screenToWorldRef={screenToWorldRef}
           >
             {content}
           </MapArea>
@@ -468,7 +500,7 @@ export function GameScreen() {
           }}
         >
           <div
-            className="animate-quest-complete rounded-xl bg-[var(--color-panel)] border-2 border-[var(--color-primary)] px-8 py-6 shadow-lg flex flex-col items-center gap-2 cursor-default relative"
+            className="animate-quest-complete rounded-xl bg-[var(--color-panel)] border-2 border-[var(--color-primary)] px-8 py-6 shadow-lg flex flex-col items-center gap-3 cursor-default relative"
             role="dialog"
             aria-label="任務完成"
             onClick={(e) => e.stopPropagation()}
@@ -483,6 +515,18 @@ export function GameScreen() {
             </button>
             <span className="text-xl font-bold text-[var(--color-primary)]">任務完成</span>
             <span className="text-sm text-[var(--color-text-default)]">{quest.name}</span>
+            {nextMission && (
+              <button
+                type="button"
+                onClick={() => {
+                  game.selectMission(nextMission.mapId, nextMission.questId);
+                  setShowQuestCompleteCelebration(false);
+                }}
+                className="mt-1 px-5 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                繼續：{nextMission.name} →
+              </button>
+            )}
           </div>
         </div>
       )}

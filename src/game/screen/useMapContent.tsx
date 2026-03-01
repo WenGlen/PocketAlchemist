@@ -8,15 +8,15 @@ import {
   npcsByMap,
   resourceNodesByMap,
   resourceNodes,
-  labTerrains,
-  labMonsters,
+  objTerrains,
+  objMonsters,
   getGatherLimitForNode,
-} from '../../../objects/data/objectsTable';
-import { getResourceEffectOrDefault } from '../../../objects/resource/resourceEffectRegistry';
-import { NpcView } from '../../../objects/npc/NpcView';
-import { ResourceNodeView } from '../../../objects/resource/ResourceNodeView';
-import { TerrainView } from '../../../objects/terrain/TerrainView';
-import { MonsterView } from '../../../objects/monster/MonsterView';
+} from '../../objects/data/objectsTable';
+import { getResourceEffectOrDefault } from '../../objects/resource/resourceEffectRegistry';
+import { NpcView } from '../../objects/npc/NpcView';
+import { ResourceNodeView } from '../../objects/resource/ResourceNodeView';
+import { TerrainView } from '../../objects/terrain/TerrainView';
+import { MonsterView } from '../../objects/monster/MonsterView';
 
 export interface HitTestTarget {
   id: string;
@@ -87,23 +87,38 @@ export function useMapContent(
     bubbleLabel,
   } = state;
 
-  const npcs = npcsByMap[mapId] ?? [objectTable['OBJ-npc-001']!];
+  const rawNpcs = npcsByMap[mapId] ?? [objectTable['OBJ-npc-001']!];
+  // 依 positionByMap 覆蓋 NPC 座標，確保跨地圖複用時顯示在正確位置
+  const npcs = rawNpcs.map((n) => {
+    const override = n.positionByMap?.[mapId];
+    return override ? { ...n, x: override.x, y: override.y } : n;
+  });
   const resources = (resourceNodesByMap[mapId] ?? resourceNodes).filter((n) => !n.hidden);
 
   const hitTestTargets: HitTestTargets = useMemo(
     () => ({
-      npcs: npcs.map((n) => ({ id: n.id, x: n.x, y: n.y, radius: n.radius ?? 24 })),
-      resources: resources.map((r) => ({ id: r.id, x: r.x, y: r.y, radius: r.radius })),
+      npcs: npcs.map((n) => {
+        const w = n.hitbox?.width ?? (n.radius ?? 24) * 2;
+        const h = n.hitbox?.height ?? w;
+        return { id: n.id, x: n.x, y: n.y, radius: Math.min(w, h) / 2 };
+      }),
+      resources: resources.map((r) => {
+        const w = r.hitbox?.width ?? r.radius * 2;
+        const h = r.hitbox?.height ?? w;
+        return { id: r.id, x: r.x, y: r.y + h * 0.25, radius: Math.min(w, h) };
+      }),
       monsters:
         mapId === 'MAP-field-001'
-          ? labMonsters.map((m) => {
+          ? objMonsters.map((m) => {
               const pos = monsterPositions[m.id] ?? { x: m.x, y: m.y };
-              return { id: m.id, x: pos.x, y: pos.y, radius: m.radius };
+              const w = m.hitbox?.width ?? m.radius * 2;
+              const h = m.hitbox?.height ?? w;
+              return { id: m.id, x: pos.x, y: pos.y + h * 0.25, radius: Math.min(w, h) * 0.75 };
             })
           : [],
       terrains:
         mapId === 'MAP-field-001'
-          ? labTerrains
+          ? objTerrains
               .filter((t) => !(t.requiredItemId && terrainClearedIds[t.id]))
               .map((t) => ({ id: t.id, x: t.x, y: t.y, radius: t.radius }))
           : [],
@@ -168,7 +183,7 @@ export function useMapContent(
             <div
               key={lastResourceFeedback.key}
               className={`absolute pointer-events-none text-sm font-medium animate-float-text whitespace-nowrap ${colorClass}`}
-              style={{ left: node.x - 28, top: node.y - node.radius - 28 }}
+              style={{ left: node.x - 28, top: node.y - node.radius - 50 }}
             >
               {lastResourceFeedback.label}
             </div>
@@ -176,7 +191,7 @@ export function useMapContent(
         })()}
         {mapId === 'MAP-field-001' && (
           <>
-            {labTerrains.map((t) => {
+            {objTerrains.map((t) => {
               const terrainInRange =
                 t.damagePerTick != null &&
                 Math.hypot(playerPosition.x - t.x, playerPosition.y - t.y) <= t.radius;
@@ -190,7 +205,7 @@ export function useMapContent(
                 />
               );
             })}
-            {labMonsters.map((m) => (
+            {objMonsters.map((m) => (
               <MonsterView
                 key={m.id}
                 monster={m}
@@ -202,7 +217,7 @@ export function useMapContent(
               />
             ))}
             {lastStunFeedback && (() => {
-              const m = labMonsters.find((mon) => mon.id === lastStunFeedback.monsterId);
+              const m = objMonsters.find((mon) => mon.id === lastStunFeedback.monsterId);
               if (!m) return null;
               const pos = monsterPositions[m.id] ?? { x: m.x, y: m.y };
               return (

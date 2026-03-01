@@ -1,6 +1,5 @@
 export type EntityType =
-  | 'player'
-  | 'material_node'
+  | 'role'
   | 'npc'
   | 'monster'
   | 'synthesis_panel'
@@ -17,9 +16,29 @@ export interface BaseEntity {
   interactive?: boolean;
 }
 
+/** 物件碰撞與視覺邊界設定；未設時以 radius * 2 為預設尺寸、全圓圓角 */
+export interface Hitbox {
+  /** 物件 x 寬（px） */
+  width: number;
+  /** 物件 y 高（px），未設則 = width */
+  height?: number;
+  /** 圓角（px），未設則 = width（全圓） */
+  cornerRadius?: number;
+}
+
 export interface MapEntity extends BaseEntity {
   displayName?: string;
   dialogueKey?: string;
+  /** 碰撞與視覺邊界；未設則以 radius * 2 帶入預設尺寸 */
+  hitbox?: Hitbox;
+  /** 顯示於物件中心的 emoji */
+  emoji?: string;
+  /**
+   * NPC 跨地圖複用：不同地圖上可使用不同座標顯示同一個 NPC 定義。
+   * 若指定了當前 mapId 的 override，渲染與碰撞皆以此座標為準，忽略根層級的 x / y。
+   * key = mapId（如 'MAP-field-002'），value = { x, y }
+   */
+  positionByMap?: Record<string, { x: number; y: number }>;
 }
 
 /** 地形：可依屬性為可／不可經過、進入是否受傷、是否需道具清除等 */
@@ -60,6 +79,10 @@ export interface MonsterDef extends BaseEntity {
   displayName?: string;
   /** 地圖上圓圈內顯示的名稱（未設則用 displayName） */
   mapLabel?: string;
+  /** 碰撞與視覺邊界；未設則以 radius * 2 帶入預設尺寸 */
+  hitbox?: Hitbox;
+  /** 顯示於物件中心的 emoji */
+  emoji?: string;
   /** 巡邏：沿單軸左右或上下來回移動 */
   patrol?: {
     /** 移動軸 */

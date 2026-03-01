@@ -37,8 +37,25 @@ export const MAP_FIELD_001: MapData = {
   },
 };
 
+/** 第二張地圖：幽林深處。三任務串鏈，NPC 複用，無怪物 */
+export const MAP_FIELD_002: MapData = {
+  id: 'MAP-field-002',
+  name: '幽林深處',
+  width: 1400,
+  height: 1000,
+  walkable: true,
+  texture: {
+    gradientColors: {
+      top: 'var(--color-map-grass-top)',
+      mid: 'var(--color-map-grass-mid)',
+      bottom: 'var(--color-map-grass-bottom)',
+    },
+  },
+};
+
 export const mapsById: Record<string, MapData> = {
   [MAP_FIELD_001.id]: MAP_FIELD_001,
+  [MAP_FIELD_002.id]: MAP_FIELD_002,
 };
 
 export function getMap(id: string): MapData | undefined {

@@ -1,5 +1,6 @@
 import type { NpcDef } from '../data/objectsTable';
-import { getItem } from '../../items/data/itemTable';
+import { getItem } from '../../items/data/itemsTable';
+import { ObjectView } from '../shared/ObjectView';
 
 interface NpcViewProps {
   npc: NpcDef;
@@ -13,39 +14,32 @@ interface NpcViewProps {
 
 export function NpcView({ npc, inRange, demandItemId, demandLabel, onBubbleClick }: NpcViewProps) {
   const r = npc.radius ?? 24;
+  const w = npc.hitbox?.width ?? r * 2;
+  const h = npc.hitbox?.height ?? w;
   const bubbleText = demandLabel ?? (demandItemId ? getItem(demandItemId)?.name : null);
+
+  const ringBgColor = inRange ? 'var(--color-secondary)' : 'var(--color-secondary-50)';
+  const ringBorderColor = inRange ? 'var(--color-object-focus)' : 'var(--color-npc-normal)';
+  const ringShadow = inRange ? '0 0 12px var(--color-primary-50)' : undefined;
+  const ringOpacity = inRange ? 1 : 0.8;
+
   return (
-    <div className="absolute flex flex-col items-center" style={{ left: npc.x - r, top: npc.y - r }}>
-      {inRange && bubbleText && (
-        <button
-          type="button"
-          className="absolute left-1/2 -translate-x-1/2 top-full -translate-y-full rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap z-10 hover:bg-[var(--color-panel-muted)] active:scale-[0.98] cursor-pointer transition-all"
-          title={`${bubbleText}（點擊互動）`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onBubbleClick?.();
-          }}
-        >
-          📦 {bubbleText}
-        </button>
-      )}
-      <div
-        className={`rounded-full flex items-center justify-center text-xs font-bold text-[var(--color-text-default)] transition-all ${
-          inRange
-            ? 'bg-[var(--color-secondary)] border-[3px] border-[var(--color-object-focus)] shadow-[0_0_12px_var(--color-primary-50)]'
-            : 'bg-[var(--color-secondary-50)] border-2 border-[var(--color-npc-normal)] opacity-80'
-        }`}
-        style={{ width: r * 2, height: r * 2 }}
-        title={inRange ? `${npc.displayName}（可互動）` : npc.displayName}
-      >
-        NPC
-      </div>
-      <span
-        className="absolute left-1/2 -translate-x-1/2 top-full mt-1 text-[10px] font-medium text-[var(--color-text-default)] whitespace-nowrap"
-        style={{ filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.9))' }}
-      >
-        {npc.displayName}
-      </span>
-    </div>
+    <ObjectView
+      x={npc.x}
+      y={npc.y}
+      width={w}
+      height={h}
+      cornerRadius={npc.hitbox?.cornerRadius}
+      emoji={npc.emoji}
+      displayName={npc.displayName}
+      ringBgColor={ringBgColor}
+      ringBorderColor={ringBorderColor}
+      ringShadow={ringShadow}
+      ringOpacity={ringOpacity}
+      bubbleText={inRange ? bubbleText : null}
+      bubbleClickable
+      onBubbleClick={onBubbleClick}
+      title={inRange ? `${npc.displayName}（可互動）` : npc.displayName}
+    />
   );
 }

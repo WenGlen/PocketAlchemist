@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { getItem } from '../../data/itemTable';
+import { getItem } from '../../data/itemsTable';
 import { matchRecipe } from './recipes';
 import type { SlotItem } from '../useBackpack';
 

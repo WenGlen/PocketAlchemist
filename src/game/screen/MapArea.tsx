@@ -3,8 +3,11 @@
  * 不控管任何內容物（NPC／資源／怪物／障礙物）；內容由 useMapContent 產出，以 children 傳入。
  */
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { interactionConfig } from '../../../config/interactionConfig';
-import { getMap } from '../../map/data/mapsTable';
+import { interactionConfig } from '../../core/config/interactionConfig';
+import { getMap } from '../../maps/data/mapsTable';
+import { OBJ_ROLE_001 } from '../../objects/data/objectsTable';
+import { ObjectView } from '../../objects/shared/ObjectView';
+import { debugConfig } from '../../objects/debugForObjects';
 import { ControlRing } from '../controls/ControlRing';
 import type { HitTestTargets, MapEntityType } from './useMapContent';
 
@@ -16,7 +19,7 @@ function normalize(x: number, y: number): { x: number; y: number } {
   return { x: x / len, y: y / len };
 }
 
-function hitTest(worldX: number, worldY: number, targets: { id: string; x: number; y: number; radius: number }[]): string | null {
+export function hitTest(worldX: number, worldY: number, targets: { id: string; x: number; y: number; radius: number }[]): string | null {
   for (const t of targets) {
     if (Math.hypot(worldX - t.x, worldY - t.y) <= t.radius) return t.id;
   }
@@ -36,6 +39,8 @@ export interface MapAreaProps {
   hitTestTargets: HitTestTargets;
   onTap: (type: MapEntityType, id: string) => void;
   children: React.ReactNode;
+  /** 外部傳入的 ref，MapArea 會即時寫入 screenToWorld 函數供拖曳等非地圖事件使用 */
+  screenToWorldRef?: React.MutableRefObject<((clientX: number, clientY: number) => { x: number; y: number }) | null>;
 }
 
 export function MapArea({
@@ -50,6 +55,7 @@ export function MapArea({
   hitTestTargets,
   onTap,
   children,
+  screenToWorldRef,
 }: MapAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pointerDown, setPointerDown] = useState<{
@@ -100,6 +106,8 @@ export function MapArea({
     },
     [cameraX, cameraY, getRect]
   );
+  // 每次 render 都即時更新，讓外部拖曳等事件也能拿到最新的座標換算函數
+  if (screenToWorldRef) screenToWorldRef.current = screenToWorld;
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -250,17 +258,34 @@ export function MapArea({
             />
           );
         })()}
-        <div
-          className="absolute rounded-full border-[3px] bg-[var(--color-player-bg)] border-[var(--color-player-border)]"
-          style={{
-            left: playerPosition.x - 20,
-            top: playerPosition.y - 20,
-            width: 40,
-            height: 40,
-            boxShadow: '0 0 0 2px var(--color-player-glow)',
-          }}
+        <ObjectView
+          x={playerPosition.x}
+          y={playerPosition.y}
+          width={OBJ_ROLE_001.hitbox?.width ?? 40}
+          height={OBJ_ROLE_001.hitbox?.height ?? OBJ_ROLE_001.hitbox?.width ?? 40}
+          emoji={OBJ_ROLE_001.emoji}
+          ringBgColor="var(--color-player-bg)"
+          ringBorderColor="var(--color-player-border)"
+          ringBorderWidth={3}
+          ringShadow="0 0 0 2px var(--color-player-glow)"
+          containerZIndex={3}
           title="主角"
         />
+        {/* ── Debug：主角中心點（青色十字準心）─── */}
+        {debugConfig.showHitbox && (
+          <>
+            <div
+              className="absolute pointer-events-none"
+              style={{ left: playerPosition.x - 10, top: playerPosition.y - 1, width: 20, height: 2, background: 'var(--color-primary)', zIndex: 25 }}
+              aria-hidden
+            />
+            <div
+              className="absolute pointer-events-none"
+              style={{ left: playerPosition.x - 1, top: playerPosition.y - 10, width: 2, height: 20, background:'var(--color-primary)', zIndex: 25 }}
+              aria-hidden
+            />
+          </>
+        )}
         {children}
       </div>
 

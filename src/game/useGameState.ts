@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { objectTable, npcsByMap, resourceNodes, resourceNodesByMap, labTerrains, labMonsters, getInitialResourceRemainingForMap, getBlockingTerrainsForMap, getLabMonster } from '../objects/data/objectsTable';
+import { objectTable, npcsByMap, resourceNodes, resourceNodesByMap, objTerrains, objMonsters, getInitialResourceRemainingForMap, getBlockingTerrainsForMap, getLabMonster } from '../objects/data/objectsTable';
 import type { LastResourceFeedback } from '../objects/resource/resourceEffectRegistry';
-import { interactionConfig } from '../config/interactionConfig';
-import { getMap } from '../env/map/data/mapsTable';
+import { interactionConfig } from '../core/config/interactionConfig';
+import { getMap } from '../maps/data/mapsTable';
+import { playSound } from '../assets/audio';
 
 const PLAYER_SPEED = 200;
 const PLAYER_RADIUS = 20;
@@ -21,7 +22,11 @@ function getObstaclesForMap(
   const npcs = npcsByMap[mapId] ?? Object.values(objectTable);
   const nodes = resourceNodesByMap[mapId] ?? resourceNodes;
   const list = [
-    ...npcs.map((n) => ({ x: n.x, y: n.y, radius: n.radius ?? 24 })),
+    // NPC 碰撞以 positionByMap 優先，確保切換地圖後碰撞體在正確位置
+    ...npcs.map((n) => {
+      const pos = n.positionByMap?.[mapId];
+      return { x: pos?.x ?? n.x, y: pos?.y ?? n.y, radius: n.radius ?? 24 };
+    }),
     ...nodes.map((n) => ({ x: n.x, y: n.y, radius: n.radius })),
     ...getBlockingTerrainsForMap(mapId, terrainClearedIds),
   ];
@@ -84,6 +89,8 @@ export function useGameState() {
   const [lastResourceFeedback, setLastResourceFeedback] = useState<LastResourceFeedback | null>(null);
   /** MVP-01：血量（僅 lab 使用） */
   const [hp, setHp] = useState(HP_MAX);
+  /** 同步追蹤 hp 的 ref，供 RAF / setInterval 在下一個 setHp 前判斷 damage vs fail 音效 */
+  const hpRef = useRef(HP_MAX);
   /** MVP-01：成功 / 失敗 / 進行中 */
   const [gameOutcome, setGameOutcome] = useState<GameOutcome>('playing');
   /** MVP-01：怪物暈眩結束時間戳 */
@@ -109,11 +116,11 @@ export function useGameState() {
   const [lastStunFeedback, setLastStunFeedback] = useState<{ monsterId: string; label: string; key: number } | null>(null);
   /** 怪物即時位置（有 patrol 的會隨時間更新；key = monsterId） */
   const [monsterPositions, setMonsterPositions] = useState<Record<string, { x: number; y: number }>>(() =>
-    Object.fromEntries(labMonsters.map((m) => [m.id, { x: m.x, y: m.y }]))
+    Object.fromEntries(objMonsters.map((m) => [m.id, { x: m.x, y: m.y }]))
   );
   /** 巡邏方向 1 | -1，僅用 ref 在 RAF 內更新，不觸發 re-render */
   const monsterPatrolDirectionRef = useRef<Record<string, 1 | -1>>(
-    Object.fromEntries(labMonsters.filter((m) => m.patrol).map((m) => [m.id, 1]))
+    Object.fromEntries(objMonsters.filter((m) => m.patrol).map((m) => [m.id, 1]))
   );
   const lastTime = useRef<number>(0);
   const keysPressed = useRef<Set<string>>(new Set());
@@ -176,6 +183,7 @@ export function useGameState() {
     if (interactionConfig.monsterTapEffect !== 'stun') return;
     const monster = getLabMonster(monsterId);
     if (!monster?.stunDurationMs) return;
+    playSound('stun');
     const until = Date.now() + monster.stunDurationMs;
     monsterStunUntilRef.current = until;
     // 把 ref 重置為暈眩結束時間，確保解除暈眩後不會立即攻擊
@@ -214,6 +222,31 @@ export function useGameState() {
     return () => clearTimeout(t);
   }, [lastStunFeedback]);
 
+  /**
+   * 已完成任務 ID 清單：持久化於 localStorage，供串鏈前置條件判斷與 UI 鎖定顯示。
+   * 只新增不刪除，玩家重複完成同一任務不會影響其他任務的解鎖狀態。
+   */
+  const [completedQuestIds, setCompletedQuestIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('pa_completed_quests');
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  /** 記錄任務完成，去重後寫入 localStorage */
+  const recordQuestCompletion = useCallback((questId: string) => {
+    setCompletedQuestIds((prev) => {
+      if (prev.includes(questId)) return prev;
+      const next = [...prev, questId];
+      try {
+        localStorage.setItem('pa_completed_quests', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   /** 選單：選擇任務（切換或重新開始）；傳入該任務的 mapId 與 questId */
   const selectMission = useCallback((nextMapId: string, nextQuestId: string) => {
     setPlayerPosition(getSpawnForMap(nextMapId));
@@ -224,18 +257,19 @@ export function useGameState() {
     setQuestPhase('none');
     setQuestStepIndex(0);
     setHp(HP_MAX);
+    hpRef.current = HP_MAX;
     setGameOutcome('playing');
     setMonsterStunUntil(0);
     monsterStunUntilRef.current = 0;
     setSelectedPotionItemId(null);
     setTerrainClearedIds({});
     setResourceRemaining(getInitialResourceRemainingForMap(nextMapId));
-    setMonsterPositions(Object.fromEntries(labMonsters.map((m) => [m.id, { x: m.x, y: m.y }])));
+    setMonsterPositions(Object.fromEntries(objMonsters.map((m) => [m.id, { x: m.x, y: m.y }])));
     monsterPatrolDirectionRef.current = Object.fromEntries(
-      labMonsters.filter((m) => m.patrol).map((m) => [m.id, 1])
+      objMonsters.filter((m) => m.patrol).map((m) => [m.id, 1])
     );
     lastTerrainDamageRef.current = {};
-    monsterLastAttackRef.current = Object.fromEntries(labMonsters.map((m) => [m.id, 0]));
+    monsterLastAttackRef.current = Object.fromEntries(objMonsters.map((m) => [m.id, 0]));
     setMonsterLastHitTimes({});
     setMonsterCooldownResetTimes({});
     setMissionResetKey((k) => k + 1);
@@ -333,7 +367,7 @@ export function useGameState() {
         const next: Record<string, { x: number; y: number }> = {};
         const dirs = monsterPatrolDirectionRef.current;
         const isStunned = monsterStunUntilRef.current > Date.now();
-        for (const m of labMonsters) {
+        for (const m of objMonsters) {
           if (!m.patrol || isStunned) {
             next[m.id] = prev[m.id] ?? { x: m.x, y: m.y };
             continue;
@@ -364,20 +398,23 @@ export function useGameState() {
       if (gameOutcomeRef.current === 'playing' && monsterStunUntilRef.current <= Date.now()) {
         const now = Date.now();
         const pos = playerPositionRef.current;
-        for (const m of labMonsters) {
+        for (const m of objMonsters) {
           const mpos = monsterPositionsRef.current[m.id] ?? { x: m.x, y: m.y };
-          const inRange = Math.hypot(pos.x - mpos.x, pos.y - mpos.y) <= m.radius;
+          const mw = m.hitbox?.width ?? m.radius * 2;
+          const mh = m.hitbox?.height ?? mw;
+          const inRange = Math.hypot(pos.x - mpos.x, pos.y - (mpos.y + mh * 0.25)) <= Math.min(mw, mh) * 0.75;
           const last = monsterLastAttackRef.current[m.id] ?? 0;
           if (inRange && now - last >= m.attackIntervalMs) {
             monsterLastAttackRef.current[m.id] = now;
             // 命中時間（閃光 / 晃動）與冷卻圈起始時間同時更新
             setMonsterLastHitTimes((prev) => ({ ...prev, [m.id]: now }));
             setMonsterCooldownResetTimes((prev) => ({ ...prev, [m.id]: now }));
-            setHp((h) => {
-              const next = Math.max(0, h - m.attackDamage);
-              if (next <= 0) setGameOutcome('fail');
-              return next;
-            });
+            // 用 hpRef 在 setHp 之前決定播 damage 還是 fail
+            const nextHp = Math.max(0, hpRef.current - m.attackDamage);
+            hpRef.current = nextHp;
+            playSound(nextHp <= 0 ? 'fail' : 'damage');
+            setHp(nextHp);
+            if (nextHp <= 0) setGameOutcome('fail');
           }
         }
       }
@@ -394,7 +431,7 @@ export function useGameState() {
   monsterPositionsRef.current = monsterPositions;
   /** 怪物上次攻擊時間戳（ref，不觸發 re-render）；初始為 0 代表冷卻完畢，玩家進範圍即可立刻攻擊 */
   const monsterLastAttackRef = useRef<Record<string, number>>(
-    Object.fromEntries(labMonsters.map((m) => [m.id, 0]))
+    Object.fromEntries(objMonsters.map((m) => [m.id, 0]))
   );
   const lastTerrainDamageRef = useRef<Record<string, number>>({});
 
@@ -406,18 +443,18 @@ export function useGameState() {
       const now = Date.now();
 
       // 地形：範圍內持續扣血（有 damagePerTick 的地形，依 damageIntervalMs 節流）
-      for (const terrain of labTerrains) {
+      for (const terrain of objTerrains) {
         if (terrain.damagePerTick == null) continue;
         const inRange = Math.hypot(pos.x - terrain.x, pos.y - terrain.y) <= terrain.radius;
         const terrainInterval = terrain.damageIntervalMs ?? 100;
         const last = lastTerrainDamageRef.current[terrain.id] ?? 0;
         if (inRange && now - last >= terrainInterval) {
           lastTerrainDamageRef.current[terrain.id] = now;
-          setHp((h) => {
-            const next = Math.max(0, h - terrain.damagePerTick!);
-            if (next <= 0) setGameOutcome('fail');
-            return next;
-          });
+          const nextHp = Math.max(0, hpRef.current - terrain.damagePerTick!);
+          hpRef.current = nextHp;
+          playSound(nextHp <= 0 ? 'fail' : 'damage');
+          setHp(nextHp);
+          if (nextHp <= 0) setGameOutcome('fail');
         }
       }
     }, PROXIMITY_TICK_MS);
@@ -465,5 +502,7 @@ export function useGameState() {
     selectMission,
     selectedQuestId,
     missionResetKey,
+    completedQuestIds,
+    recordQuestCompletion,
   };
 }

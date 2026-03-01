@@ -1,4 +1,4 @@
-import type { StatValue } from '../../../config/statsConfig';
+import type { StatValue } from './statsConfig';
 
 /**
  * 頂部選單與地圖之間的數值區：顯示 HP 等能力數值。

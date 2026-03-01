@@ -122,9 +122,9 @@
 
   /* 遊戲／地圖用色（灰色系） */
   --color-map-bg: hsl(200, 10%, 16%);
-  --color-map-grass-top: hsl(200, 8%, 22%);
-  --color-map-grass-mid: hsl(200, 8%, 18%);
-  --color-map-grass-bottom: hsl(200, 8%, 14%);
+  --color-map-grass-top: hsl(120, 30%, 40%);
+  --color-map-grass-mid: hsl(120, 40%, 30%);
+  --color-map-grass-bottom: hsl(120, 50%, 22%);
   --color-player-bg: var(--color-primary);
   --color-player-border: var(--color-text-emphasized);
   --color-player-glow: var(--color-primary-muted);

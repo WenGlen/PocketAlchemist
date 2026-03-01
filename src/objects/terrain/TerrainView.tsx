@@ -1,4 +1,4 @@
-import type { TerrainDef } from '../../types/entity';
+import type { TerrainDef } from '../../core/types/entity';
 
 interface TerrainViewProps {
   terrain: TerrainDef;
@@ -25,7 +25,7 @@ export function TerrainView({ terrain, cleared = false, highlightAsDropTarget = 
     const customColor = terrain.mapColor;
     return (
       <div
-        data-terrain-drop={terrain.id}
+        {...(terrain.requiredItemId ? { 'data-terrain-drop': terrain.id } : {})}
         className={`absolute ${shapeClass} flex items-center justify-center text-xs font-bold border-2 ${
           highlightAsDropTarget
             ? 'bg-[var(--color-primary-25)] border-[var(--color-object-focus)]'

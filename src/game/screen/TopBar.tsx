@@ -1,18 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
-import type { MissionEntry } from '../../../quests/data/missionList';
+import type { MissionEntry } from '../../quests/data/missionList';
+import { APP_VERSION } from '../version';
+import { useAudioMute } from '../../assets/audio';
+import { getQuest, isQuestUnlocked } from '../../quests/data/questData';
 
 interface TopBarProps {
   currentMapId: string;
   /** 當前選中的任務 ID（與 mission 的 questId 比對） */
   currentQuestId: string;
   missions: MissionEntry[];
+  /** 已完成任務 ID 清單，供串鏈任務鎖定判斷 */
+  completedQuestIds: string[];
   /** 選擇任務：傳入該任務的 mapId 與 questId */
   onSelectMission: (mapId: string, questId: string) => void;
 }
 
-export function TopBar({ currentMapId, currentQuestId, missions, onSelectMission }: TopBarProps) {
+export function TopBar({ currentMapId, currentQuestId, missions, completedQuestIds, onSelectMission }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [muted, toggleMute] = useAudioMute();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -33,9 +39,20 @@ export function TopBar({ currentMapId, currentQuestId, missions, onSelectMission
   return (
     <header className="flex-shrink-0 h-12 px-3 flex items-center justify-between bg-[var(--color-panel)] border-b border-[var(--color-border)] relative">
       <span className="text-sm font-semibold text-[var(--color-text-default)]">通勤鍊金術師</span>
-      <span className="text-sm font-semibold text-muted">MVP-01.00</span>
+      <span className="text-sm font-semibold text-muted">{APP_VERSION}</span>
 
-      <div className="relative" ref={menuRef}>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="w-8 h-8 flex items-center justify-center rounded text-base hover:bg-[var(--color-panel-muted)] transition-colors"
+          aria-label={muted ? '開啟音效' : '靜音'}
+          title={muted ? '開啟音效' : '靜音'}
+          onClick={toggleMute}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+
+        <div className="relative" ref={menuRef}>
         <button
           type="button"
           className="px-3 py-1 rounded bg-[var(--color-btn)] text-[var(--color-btn-text)] text-sm"
@@ -56,23 +73,37 @@ export function TopBar({ currentMapId, currentQuestId, missions, onSelectMission
             </div>
             {missions.map((m) => {
               const isCurrent = m.mapId === currentMapId && m.questId === currentQuestId;
+              const quest = getQuest(m.questId);
+              const locked = quest ? !isQuestUnlocked(quest, completedQuestIds) : false;
+              const isCompleted = completedQuestIds.includes(m.questId);
               return (
                 <button
                   key={m.questId}
                   type="button"
                   role="menuitem"
-                  className="w-full text-left px-3 py-2 text-sm text-[var(--color-text-default)] hover:bg-[var(--color-panel-muted)] flex items-center justify-between gap-2"
-                  onClick={() => handleSelect(m)}
+                  disabled={locked}
+                  className={[
+                    'w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2',
+                    locked
+                      ? 'text-[var(--color-text-muted)] cursor-not-allowed opacity-50'
+                      : 'text-[var(--color-text-default)] hover:bg-[var(--color-panel-muted)]',
+                  ].join(' ')}
+                  onClick={() => !locked && handleSelect(m)}
                 >
-                  <span>{m.name}</span>
-                  {isCurrent && (
-                    <span className="text-[10px] text-[var(--color-text-muted)]">（重新開始）</span>
+                  <span className="flex items-center gap-1.5">
+                    {locked && <span aria-label="未解鎖">🔒</span>}
+                    {isCompleted && !locked && <span aria-label="已完成" className="text-[var(--color-primary)]">✓</span>}
+                    {m.name}
+                  </span>
+                  {isCurrent && !locked && (
+                    <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">（重新開始）</span>
                   )}
                 </button>
               );
             })}
           </div>
         )}
+        </div>
       </div>
     </header>
   );

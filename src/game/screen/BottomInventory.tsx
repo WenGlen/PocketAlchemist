@@ -1,7 +1,7 @@
-import { Backpack } from '../../../items/inventory/Backpack';
-import { SynthesisPanel } from '../../../items/inventory/synthesis/SynthesisPanel';
-import type { SlotItem } from '../../../items/inventory/useBackpack';
-import type { DropTargetFromBackpack } from '../../../items/inventory/Backpack';
+import { Backpack } from '../../items/inventory/Backpack';
+import { SynthesisPanel } from '../../items/inventory/synthesis/SynthesisPanel';
+import type { SlotItem } from '../../items/inventory/useBackpack';
+import type { DropTargetFromBackpack } from '../../items/inventory/Backpack';
 
 interface BottomInventoryProps {
   slots: (SlotItem | null)[];
