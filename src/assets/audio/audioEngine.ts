@@ -1,12 +1,16 @@
-/**
- * 音效引擎：使用 Web Audio API 即時合成，無需外部音頻檔案。
- * 所有音效 ID 與觸發時機集中定義於此，不散落至各元件。
- *
- * 靜音狀態透過 setMuted() 切換，持久化於 localStorage。
- * damage 音效內建防疊播冷卻（DAMAGE_COOLDOWN_MS），適用頻繁扣血場景。
- */
+//════════════════════════════════════════════════════════════════
+// 音效引擎
+//════════════════════════════════════════════════════════════════
+// 使用 Web Audio API 即時合成，無需外部音頻檔案
+// 所有音效 ID 與觸發時機集中定義於此，不散落至各元件
+// 靜音狀態透過 setMuted() 切換，持久化於 localStorage
+// damage 音效內建防疊播冷卻（DAMAGE_COOLDOWN_MS），適用頻繁扣血場景
+
+// ========== 型別定義 ==========
 
 export type SoundId = 'gather' | 'synthesize' | 'damage' | 'success' | 'fail' | 'stun';
+
+// ========== 內部狀態 ==========
 
 let _ctx: AudioContext | null = null;
 
@@ -20,8 +24,7 @@ function getMuted(): boolean {
 
 let _muted: boolean = getMuted();
 
-/** damage 音效最後播放時間（防疊播用） */
-let _lastDamageTime = 0;
+let _lastDamageTime = 0;  // damage 音效最後播放時間（防疊播用）
 const DAMAGE_COOLDOWN_MS = 400;
 
 function getCtx(): AudioContext | null {
@@ -35,10 +38,10 @@ function getCtx(): AudioContext | null {
   }
 }
 
-/**
- * 播放單音：oscillator 掃頻 + 線性 gain envelope。
- * @param startOffset 相對 ctx.currentTime 的秒數延遲，用於連音合成
- */
+// ========== 內部工具 ==========
+
+// 播放單音：oscillator 掃頻 + 線性 gain envelope
+// startOffset：相對 ctx.currentTime 的秒數延遲，用於連音合成
 function playTone(
   ctx: AudioContext,
   type: OscillatorType,
@@ -66,6 +69,8 @@ function playTone(
   osc.stop(now + duration + 0.005);
 }
 
+// ========== 靜音控制 ==========
+
 export function isMuted(): boolean {
   return _muted;
 }
@@ -77,17 +82,16 @@ export function setMuted(value: boolean): void {
   } catch {}
 }
 
-/**
- * 播放音效。在任何元件或 hook 中均可直接呼叫（非 React hook，無 stale closure 問題）。
- *
- * 音效對應語意：
- * - gather    : 採集素材 / 拖曳交換完成
- * - synthesize: 合成成功
- * - damage    : 怪物攻擊或地形扣血（含 400ms 防疊播）
- * - success   : 任務完成
- * - fail      : HP 歸零，遊戲失敗
- * - stun      : 點擊怪物觸發暈眩
- */
+// ========== 音效播放 ==========
+
+// 播放音效。在任何元件或 hook 中均可直接呼叫（非 React hook，無 stale closure 問題）
+// 音效對應語意：
+//   gather     : 採集素材 / 拖曳交換完成
+//   synthesize : 合成成功
+//   damage     : 怪物攻擊或地形扣血（含 400ms 防疊播）
+//   success    : 任務完成
+//   fail       : HP 歸零，遊戲失敗
+//   stun       : 點擊怪物觸發暈眩
 export function playSound(id: SoundId): void {
   if (_muted) return;
 

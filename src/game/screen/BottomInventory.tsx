@@ -1,7 +1,14 @@
+//════════════════════════════════════════════════════════════════
+// 底部道具欄
+//════════════════════════════════════════════════════════════════
+// 背包 + 合成面板的容器元件
+
 import { Backpack } from '../../items/inventory/Backpack';
 import { SynthesisPanel } from '../../items/inventory/synthesis/SynthesisPanel';
 import type { SlotItem } from '../../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../../items/inventory/Backpack';
+
+// ========== Props ==========
 
 interface BottomInventoryProps {
   slots: (SlotItem | null)[];
@@ -21,8 +28,7 @@ interface BottomInventoryProps {
   synthesisExpanded?: boolean;
   onSynthesisExpandedChange?: (expanded: boolean) => void;
   synthesisButtonDisabled?: boolean;
-  /** 剛合成成功，結果格播發光動效 */
-  justCrafted?: boolean;
+  justCrafted?: boolean;  // 剛合成成功，結果格播發光動效
 }
 
 export function BottomInventory({

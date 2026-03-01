@@ -1,3 +1,8 @@
+//════════════════════════════════════════════════════════════════
+// 合成面板
+//════════════════════════════════════════════════════════════════
+// 素材槽 + 結果預覽 + 合成按鈕
+
 import { useState, useRef, useCallback } from 'react';
 import { getItem } from '../../data/itemsTable';
 import { matchRecipe } from './recipes';
@@ -8,6 +13,8 @@ import {
   DRAG_GHOST_Z_INDEX,
   SYNTHESIS_SLOTS,
 } from '../../inventoryConstants';
+
+// ========== 工具函數 ==========
 
 function createGhostEl(itemName: string, count: number): HTMLDivElement {
   const el = document.createElement('div');
@@ -26,15 +33,15 @@ function createGhostEl(itemName: string, count: number): HTMLDivElement {
   return el;
 }
 
+// ========== Props ==========
+
 interface SynthesisPanelProps {
   slots: (SlotItem | null)[];
   onSetSlot: (index: number, item: SlotItem | null) => void;
   onCraft: (resultItemId: string, resultCount: number) => void;
   onDragEndFromSynthesis?: (synthesisSlotIndex: number, clientX: number, clientY: number) => void;
-  /** 拖曳中游標在該合成格上時高亮（可放置預覽） */
-  dragOverSynthesisSlotIndex?: number | null;
-  /** 剛合成成功，結果格播發光動效 */
-  justCrafted?: boolean;
+  dragOverSynthesisSlotIndex?: number | null;  // 拖曳中游標在該合成格上時高亮（可放置預覽）
+  justCrafted?: boolean;  // 剛合成成功，結果格播發光動效
 }
 
 export function SynthesisPanel({
@@ -45,6 +52,7 @@ export function SynthesisPanel({
   dragOverSynthesisSlotIndex = null,
   justCrafted = false,
 }: SynthesisPanelProps) {
+  // ── 狀態與 Refs ─────────────────────────────────────────────────
   const [, setDragStart] = useState<{ x: number; y: number; index: number } | null>(null);
   const [, setDidDrag] = useState(false);
   const ghostElRef = useRef<HTMLDivElement | null>(null);

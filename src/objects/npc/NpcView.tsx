@@ -1,15 +1,20 @@
+//════════════════════════════════════════════════════════════════
+// NPC 視圖
+//════════════════════════════════════════════════════════════════
+// 顯示 NPC 圓圈、emoji、泡泡提示
+
 import type { NpcDef } from '../data/objectsTable';
 import { getItem } from '../../items/data/itemsTable';
 import { ObjectView } from '../shared/ObjectView';
 import { DEFAULT_ENTITY_RADIUS, OPACITY } from '../objectsConstants';
 
+// ========== Props ==========
+
 interface NpcViewProps {
   npc: NpcDef;
   inRange?: boolean;
-  /** 任務泡泡顯示道具（顯示道具名稱） */
-  demandItemId?: string | null;
-  /** 任務泡泡顯示文字（優先於 demandItemId） */
-  demandLabel?: string | null;
+  demandItemId?: string | null;  // 任務泡泡顯示道具（顯示道具名稱）
+  demandLabel?: string | null;  // 任務泡泡顯示文字（優先於 demandItemId）
   onBubbleClick?: () => void;
 }
 
@@ -32,6 +37,7 @@ export function NpcView({ npc, inRange, demandItemId, demandLabel, onBubbleClick
       height={h}
       cornerRadius={npc.hitbox?.cornerRadius}
       emoji={npc.emoji}
+      subEmoji={npc.subEmoji}
       displayName={npc.displayName}
       ringBgColor={ringBgColor}
       ringBorderColor={ringBorderColor}

@@ -1,3 +1,9 @@
+//════════════════════════════════════════════════════════════════
+// 遊戲主畫面
+//════════════════════════════════════════════════════════════════
+// 整合 TopBar、StatsBar、MapArea、BottomInventory
+// 處理任務進度、合成、背包、對話等互動邏輯
+
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useGameState } from './useGameState';
 import { playSound } from '../assets/audio';
@@ -19,7 +25,9 @@ import { BACKPACK_CAPACITY } from '../items/inventoryConstants';
 import { getDisplayStats } from './screen/statsConfig';
 import { missionList } from '../quests/data/missionList';
 
-/** 初始背包：玻璃瓶不可堆疊，每瓶一格 */
+// ========== 工具函數 ==========
+
+// 初始背包：玻璃瓶不可堆疊，每瓶一格
 function getInitialSlotsForMap(_mapId: string): { itemId: string; count: number }[] {
   const bottle = { itemId: ITM_MAT_0001.id, count: 1 };
   return [bottle, bottle];
@@ -48,9 +56,10 @@ export function GameScreen() {
   synthesisSlotsRef.current = synthesisSlots;
   const backpackRef = useRef(backpack);
   backpackRef.current = backpack;
-  // 拖曳時需要與點擊相同的座標換算與判定目標，避免 stale closure
-  const screenToWorldRef = useRef<((clientX: number, clientY: number) => { x: number; y: number }) | null>(null);
+  const screenToWorldRef = useRef<((clientX: number, clientY: number) => { x: number; y: number }) | null>(null);  // 拖曳時需要與點擊相同的座標換算與判定目標，避免 stale closure
   const hitTestTargetsRef = useRef<{ resources: { id: string; x: number; y: number; radius: number }[] }>({ resources: [] });
+
+  // ── 副作用 ─────────────────────────────────────────────────────
 
   // 切換／重新開始任務時重置本畫面狀態
   useEffect(() => {
@@ -98,7 +107,9 @@ export function GameScreen() {
     game.showControlRing(x, y);
   };
 
-  /** 收合合成時把合成欄位內的道具全部歸還背包，再關閉 */
+  // ── 互動處理 ─────────────────────────────────────────────────
+
+  // 收合合成時把合成欄位內的道具全部歸還背包，再關閉
   const flushSynthesisToBackpackAndClose = useCallback(() => {
     synthesisSlotsRef.current.forEach((s) => {
       if (s) backpack.addItem(s.itemId, s.count);
@@ -304,7 +315,7 @@ export function GameScreen() {
     [game, backpack]
   );
 
-  /** 對話窗內點「領取」：完成當前 receive_from 步驟（發放道具並推進步驟） */
+  // 對話窗內點「領取」：完成當前 receive_from 步驟（發放道具並推進步驟）
   const handleReceiveFromStep = useCallback(() => {
     if (game.questPhase !== 'accepted' || !quest || currentStep?.type !== 'receive_from' || currentStep.entityId !== game.dialogueNpcId) return;
     backpack.addItem(currentStep.itemId, currentStep.count ?? 1);

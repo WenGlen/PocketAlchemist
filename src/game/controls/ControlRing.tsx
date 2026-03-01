@@ -1,4 +1,11 @@
+//════════════════════════════════════════════════════════════════
+// 控制環
+//════════════════════════════════════════════════════════════════
+// 虛擬搖桿：長按地圖任意位置後拖曳控制移動方向
+
 import { interactionConfig } from '../interactionConfig';
+
+// ========== Props ==========
 
 interface ControlRingProps {
   visible: boolean;
@@ -8,8 +15,7 @@ interface ControlRingProps {
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: (e: React.PointerEvent) => void;
   onPointerCancel: (e: React.PointerEvent) => void;
-  /** 目前移動向量，用於旋轉黃色 1/4 圓弧 */
-  moveDir?: { x: number; y: number };
+  moveDir?: { x: number; y: number };  // 目前移動向量，用於旋轉黃色 1/4 圓弧
 }
 
 export function ControlRing({

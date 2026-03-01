@@ -1,10 +1,17 @@
+//════════════════════════════════════════════════════════════════
+// 任務定義表
+//════════════════════════════════════════════════════════════════
+// 全遊戲任務定義的單一來源
+// 包含任務步驟、對話、泡泡顯示等
+
+// ========== 型別定義 ==========
+
 export type QuestPhase = 'none' | 'accepted' | 'completed';
 
-/** 單一步驟型別 */
+// 單一步驟型別
 export type QuestStep =
   | {
-      /** 開始／承接任務：只有此 entity 可承接，對話窗顯示 acceptText 與承接按鈕 */
-      type: 'start';
+      type: 'start';  // 開始／承接任務：只有此 entity 可承接
       entityId: string;
       acceptText: string;
     }
@@ -14,12 +21,9 @@ export type QuestStep =
       itemId: string;
       count?: number;
       message?: string;
-      /** 對話窗內領取前顯示的句子（與誰對話、現在步驟有關） */
-      receiveMessage?: string;
-      /** 領取按鈕文字 */
-      receiveButtonText?: string;
-      /** 此步驟下，與其他 entity 對話時顯示的內容（一個步驟可控制複數 NPC 對話） */
-      dialogueByEntity?: Record<string, string[]>;
+      receiveMessage?: string;  // 對話窗內領取前顯示的句子
+      receiveButtonText?: string;  // 領取按鈕文字
+      dialogueByEntity?: Record<string, string[]>;  // 此步驟下，與其他 entity 對話時顯示的內容
       bubbleEntityId?: string;
       bubbleItemId?: string;
       bubbleLabel?: string;
@@ -45,46 +49,41 @@ export type QuestStep =
       bubbleLabel?: string;
     }
   | {
-      /** 結束任務：獨立步驟，無實體互動，用於任務完成彈窗文案 */
-      type: 'complete';
+      type: 'complete';  // 結束任務：獨立步驟，無實體互動，用於任務完成彈窗文案
       completeMessage?: string;
     };
 
 export interface QuestDef {
   id: string;
   name: string;
-  /** 供任務清單等使用，最外層只保留基本編號與描述 */
-  description?: string;
-  /**
-   * 串鏈前置任務 ID：只有在指定任務已完成後，此任務才對玩家開放。
-   * 未設時代表隨時可接。isQuestUnlocked() 會依 completedQuestIds 判斷。
-   */
-  prerequisiteQuestId?: string;
-  /** 步驟陣列：第一項為 type 'start'（承接），其後為任務步驟，最後可為 type 'complete' */
-  steps: QuestStep[];
+  description?: string;  // 供任務清單等使用
+  prerequisiteQuestId?: string;  // 串鏈前置任務 ID；未設時代表隨時可接
+  steps: QuestStep[];  // 步驟陣列：第一項為 'start'（承接），最後可為 'complete'
 }
 
-/** 取得開始步驟（steps[0] 且 type 為 'start'） */
+// ========== 工具函數 ==========
+
+// 取得開始步驟（steps[0] 且 type 為 'start'）
 export function getStartStep(quest: QuestDef | null | undefined): (QuestStep & { type: 'start' }) | undefined {
   const first = quest?.steps?.[0];
   return first?.type === 'start' ? first : undefined;
 }
 
-/** 取得任務完成時顯示的訊息（來自最後一步 type 為 complete 或具 completeMessage 的步驟） */
+// 取得任務完成時顯示的訊息（來自最後一步 type 為 complete 或具 completeMessage 的步驟）
 export function getCompleteMessage(quest: QuestDef | null | undefined): string | undefined {
   if (!quest?.steps?.length) return undefined;
   const last = quest.steps[quest.steps.length - 1];
   return 'completeMessage' in last ? last.completeMessage : undefined;
 }
 
-/** 泡泡顯示內容（誰顯示、顯示道具或文字） */
+// 泡泡顯示內容（誰顯示、顯示道具或文字）
 export interface QuestBubbleDisplay {
   entityId: string;
   itemId?: string;
   label?: string;
 }
 
-/** 依任務階段與當前步驟回傳「誰顯示任務泡泡」與內容；無泡泡時回傳 null */
+// 依任務階段與當前步驟回傳「誰顯示任務泡泡」與內容；無泡泡時回傳 null
 export function getBubbleDisplay(
   quest: QuestDef | null | undefined,
   phase: QuestPhase,
@@ -113,7 +112,7 @@ export function getBubbleDisplay(
   return null;
 }
 
-/** 取得當前步驟（index 超出時為 undefined） */
+// 取得當前步驟（index 超出時為 undefined）
 export function getCurrentStep(
   quest: QuestDef | null | undefined,
   stepIndex: number
@@ -139,7 +138,9 @@ export const QST_MAIN_001: QuestDef = {
   ],
 };
 
-/** 任務二：實驗室訂單（承接 → 園丁領藥草 → 交付治療藥水即結束） */
+// ── MAP-field-001：野外初生地 ─────────────────────────────────────
+
+// 任務二：實驗室訂單（承接 → 園丁領藥草 → 交付治療藥水即結束）
 export const QST_MAIN_002: QuestDef = {
   id: 'QST-main-002',
   name: '實驗室訂單',
@@ -172,11 +173,9 @@ export const QST_MAIN_002: QuestDef = {
   ],
 };
 
-// =============================================================================
-// MAP-field-002：幽林深處 三任務串鏈
-// =============================================================================
+// ── MAP-field-002：幽林深處 三任務串鏈 ────────────────────────────
 
-/** 任務三：商旅的委托（MAP-field-002 入口，無前置） */
+// 任務三：商旅的委托（MAP-field-002 入口，無前置）
 export const QST_MAIN_003: QuestDef = {
   id: 'QST-main-003',
   name: '商旅的委托',
@@ -200,7 +199,7 @@ export const QST_MAIN_003: QuestDef = {
   ],
 };
 
-/** 任務四：古茶樹的滋味（前置：QST-main-003） */
+// 任務四：古茶樹的滋味（前置：QST-main-003）
 export const QST_MAIN_004: QuestDef = {
   id: 'QST-main-004',
   name: '古茶樹的滋味',
@@ -225,7 +224,7 @@ export const QST_MAIN_004: QuestDef = {
   ],
 };
 
-/** 任務五：藥劑師的緊急訂單（前置：QST-main-004） */
+// 任務五：藥劑師的緊急訂單（前置：QST-main-004）
 export const QST_MAIN_005: QuestDef = {
   id: 'QST-main-005',
   name: '緊急藥水訂單',
@@ -267,6 +266,8 @@ export const QST_MAIN_005: QuestDef = {
   ],
 };
 
+// ========== 任務表與查詢 ==========
+
 export const questTable: Record<string, QuestDef> = {
   [QST_MAIN_001.id]: QST_MAIN_001,
   [QST_MAIN_002.id]: QST_MAIN_002,
@@ -279,10 +280,8 @@ export function getQuest(id: string): QuestDef | undefined {
   return questTable[id];
 }
 
-/**
- * 判斷任務是否已解鎖：無前置任務則永遠開放；有前置則需在 completedQuestIds 中。
- * 供 TopBar 任務選單顯示鎖定狀態，以及 GameScreen 完成彈窗的「繼續下一個任務」按鈕使用。
- */
+// 判斷任務是否已解鎖：無前置任務則永遠開放；有前置則需在 completedQuestIds 中
+// 供 TopBar 任務選單顯示鎖定狀態，以及完成彈窗的「繼續下一個任務」按鈕使用
 export function isQuestUnlocked(quest: QuestDef, completedQuestIds: string[]): boolean {
   if (!quest.prerequisiteQuestId) return true;
   return completedQuestIds.includes(quest.prerequisiteQuestId);

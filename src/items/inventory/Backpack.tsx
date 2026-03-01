@@ -1,3 +1,8 @@
+//════════════════════════════════════════════════════════════════
+// 背包元件
+//════════════════════════════════════════════════════════════════
+// 道具欄格子 UI，支援拖曳排序與放置到外部目標
+
 import { useState, useRef, useCallback } from 'react';
 import { getItem } from '../data/itemsTable';
 import type { SlotItem } from './useBackpack';
@@ -7,12 +12,11 @@ import {
   DRAG_GHOST_Z_INDEX,
 } from '../inventoryConstants';
 
-/**
- * 拖曳排查：設為 true 後打開 DevTools Console，拖道具時應看到
- * [Backpack] pointer down → threshold passed, creating ghost → ghost appended to body → ghost position (每 20 次 move 印一次) → pointer up
- * 若沒有 "creating ghost" 表示 document 沒收到 pointermove（可改為在 window 監聯試試）
- */
+// ========== 偵錯設定 ==========
+// 設為 true 後打開 DevTools Console，拖道具時應看到 pointer down → threshold passed → ghost 等訊息
 const DRAG_DEBUG = false;
+
+// ========== 型別定義 ==========
 
 export type DropTargetFromBackpack =
   | { type: 'backpack'; index: number }
@@ -22,21 +26,18 @@ export type DropTargetFromBackpack =
   | { type: 'terrain'; id: string }
   | null;
 
+// ========== Props ==========
+
 interface BackpackProps {
   slots: (SlotItem | null)[];
   capacity: number;
   onMoveSlot: (fromIndex: number, toIndex: number) => void;
   onDragEnd?: (fromSlotIndex: number, clientX: number, clientY: number) => void;
-  /** 拖曳中每 move 回報座標，供 parent 用 elementFromPoint 算 drop 目標高亮 */
-  onDragMove?: (clientX: number, clientY: number) => void;
-  /** 拖曳結束或取消時呼叫，供 parent 清除 drop 目標狀態 */
-  onDragEndOrCancel?: () => void;
-  /** 需要高亮顯示的道具 ID（例如靠近湖時玻璃瓶變亮） */
-  highlightItemId?: string | null;
-  /** 剛放入道具的格子 index，觸發落地縮放動效後由 parent 清除 */
-  lastPlacedSlotIndex?: number | null;
-  /** 背包內拖曳排序成功放入時由 Backpack 呼叫，供 parent 顯示落地動效 */
-  onSlotPlaced?: (toIndex: number) => void;
+  onDragMove?: (clientX: number, clientY: number) => void;  // 拖曳中每 move 回報座標，供 parent 算 drop 目標高亮
+  onDragEndOrCancel?: () => void;  // 拖曳結束或取消時呼叫，供 parent 清除 drop 目標狀態
+  highlightItemId?: string | null;  // 需要高亮顯示的道具 ID（例如靠近湖時玻璃瓶變亮）
+  lastPlacedSlotIndex?: number | null;  // 剛放入道具的格子 index，觸發落地動效後由 parent 清除
+  onSlotPlaced?: (toIndex: number) => void;  // 背包內拖曳排序成功放入時呼叫，供 parent 顯示落地動效
 }
 
 function createGhostEl(itemName: string, count: number): HTMLDivElement {
@@ -77,6 +78,8 @@ function createGhostEl(itemName: string, count: number): HTMLDivElement {
   }
   return el;
 }
+
+// ========== 元件 ==========
 
 export function Backpack({
   slots,

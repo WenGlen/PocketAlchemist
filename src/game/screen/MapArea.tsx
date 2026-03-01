@@ -1,18 +1,23 @@
-/**
- * 地圖基底：僅負責視埠、鏡頭、移動操作與點擊座標轉換。
- * 不控管任何內容物（NPC／資源／怪物／障礙物）；內容由 useMapContent 產出，以 children 傳入。
- */
+//════════════════════════════════════════════════════════════════
+// 地圖基底
+//════════════════════════════════════════════════════════════════
+// 僅負責視埠、鏡頭、移動操作與點擊座標轉換
+// 不控管任何內容物（NPC／資源／怪物／障礙物）；內容由 useMapContent 產出，以 children 傳入
+//════════════════════════════════════════════════════════════════
+
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { interactionConfig } from '../interactionConfig';
 import { getMap } from '../../maps/data/mapsTable';
 import { DEFAULT_VIEWPORT_SIZE } from '../../maps/mapConstants';
 import { OBJ_ROLE_001 } from '../../objects/data/objectsTable';
 import { ObjectView } from '../../objects/shared/ObjectView';
-import { debugConfig } from '../../objects/debugForObjects';
+import { debugConfig } from '../../objects/objectsConstants';
 import { ControlRing } from '../controls/ControlRing';
 import type { HitTestTargets, MapEntityType } from './useMapContent';
 
 export type { MapEntityType };
+
+// ========== 工具函數 ==========
 
 function normalize(x: number, y: number): { x: number; y: number } {
   const len = Math.hypot(x, y);
@@ -27,6 +32,8 @@ export function hitTest(worldX: number, worldY: number, targets: { id: string; x
   return null;
 }
 
+// ========== Props ==========
+
 export interface MapAreaProps {
   mapId: string;
   playerPosition: { x: number; y: number };
@@ -36,12 +43,10 @@ export interface MapAreaProps {
   onShowControlRing: (screenX: number, screenY: number) => void;
   onHideControlRing: () => void;
   onMoveDirection: (dir: { x: number; y: number }) => void;
-  /** 點擊判定用：依 type 順序 npc → resource → monster → terrain 做 hit test */
-  hitTestTargets: HitTestTargets;
+  hitTestTargets: HitTestTargets;  // 點擊判定用：依 type 順序 npc → resource → monster → terrain 做 hit test
   onTap: (type: MapEntityType, id: string) => void;
   children: React.ReactNode;
-  /** 外部傳入的 ref，MapArea 會即時寫入 screenToWorld 函數供拖曳等非地圖事件使用 */
-  screenToWorldRef?: React.MutableRefObject<((clientX: number, clientY: number) => { x: number; y: number }) | null>;
+  screenToWorldRef?: React.MutableRefObject<((clientX: number, clientY: number) => { x: number; y: number }) | null>;  // 外部傳入的 ref，供拖曳等非地圖事件使用
 }
 
 export function MapArea({
@@ -58,6 +63,7 @@ export function MapArea({
   children,
   screenToWorldRef,
 }: MapAreaProps) {
+  // ── 狀態與 Refs ─────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement>(null);
   const [pointerDown, setPointerDown] = useState<{
     x: number;

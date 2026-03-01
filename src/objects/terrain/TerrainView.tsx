@@ -1,13 +1,17 @@
-import type { TerrainDef } from '../../core/types/entity';
+//════════════════════════════════════════════════════════════════
+// 地形視圖
+//════════════════════════════════════════════════════════════════
+// 顯示可通過/不可通過地形、傷害地形、需清除地形
+
+import type { TerrainDef } from '../data/objectsTable';
+
+// ========== Props ==========
 
 interface TerrainViewProps {
   terrain: TerrainDef;
-  /** 已用道具清除（僅 requiredItemId 地形）；清除後不渲染 */
-  cleared?: boolean;
-  /** 拖曳藥劑時游標在此地形上，可放置預覽 */
-  highlightAsDropTarget?: boolean;
-  /** 玩家在傷害地形範圍內（正在扣血），顯示 terrain-attack 色 */
-  playerInRange?: boolean;
+  cleared?: boolean;  // 已用道具清除（僅 requiredItemId 地形）；清除後不渲染
+  highlightAsDropTarget?: boolean;  // 拖曳藥劑時游標在此地形上，可放置預覽
+  playerInRange?: boolean;  // 玩家在傷害地形範圍內（正在扣血），顯示 terrain-attack 色
 }
 
 export function TerrainView({ terrain, cleared = false, highlightAsDropTarget = false, playerInRange = false }: TerrainViewProps) {

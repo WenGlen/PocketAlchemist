@@ -1,5 +1,12 @@
+//════════════════════════════════════════════════════════════════
+// 背包狀態 Hook
+//════════════════════════════════════════════════════════════════
+// 管理道具格子、新增、移除、排序等操作
+
 import { useState, useCallback, useEffect } from 'react';
 import { getItem } from '../data/itemsTable';
+
+// ========== 型別定義 ==========
 
 export interface SlotItem {
   itemId: string;
@@ -9,9 +16,10 @@ export interface SlotItem {
 export interface UseBackpackOptions {
   capacity?: number;
   initialSlots?: SlotItem[];
-  /** 變更時將背包重置為 initialSlots（用於切換／重新開始任務） */
-  resetKey?: number;
+  resetKey?: number;  // 變更時將背包重置為 initialSlots（用於切換／重新開始任務）
 }
+
+// ========== 工具函數 ==========
 
 function getMaxStack(itemId: string): number {
   const def = getItem(itemId);
@@ -26,6 +34,8 @@ function fillSlots(capacity: number, initialSlots: SlotItem[]): (SlotItem | null
   });
   return arr;
 }
+
+// ========== 主 Hook ==========
 
 export function useBackpack(options: UseBackpackOptions = {}) {
   const { capacity = 10, initialSlots = [], resetKey = 0 } = options;
@@ -92,7 +102,7 @@ export function useBackpack(options: UseBackpackOptions = {}) {
     [slots]
   );
 
-  /** 從背包移除第一個找到的該道具（用於湖邊消耗玻璃瓶等） */
+  // 從背包移除第一個找到的該道具（用於湖邊消耗玻璃瓶等）
   const removeFirstItem = useCallback((itemId: string, amount: number = 1) => {
     setSlots((prev) => {
       const next = [...prev];

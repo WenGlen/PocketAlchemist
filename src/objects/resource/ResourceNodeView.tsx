@@ -1,24 +1,24 @@
+//════════════════════════════════════════════════════════════════
+// 資源點視圖
+//════════════════════════════════════════════════════════════════
+// 顯示資源點圓圈、emoji、採集泡泡提示、Debug 互動範圍
+
 import type { ResourceNodeDef } from '../data/objectsTable';
 import { ObjectView } from '../shared/ObjectView';
-import { debugConfig } from '../debugForObjects';
-import { ISO_VISUAL, OPACITY } from '../objectsConstants';
+import { debugConfig, ISO_VISUAL, OPACITY } from '../objectsConstants';
+
+// ========== Props ==========
 
 interface ResourceNodeViewProps {
   node: ResourceNodeDef;
   inRange?: boolean;
   disabled?: boolean;
-  /** 拖曳道具時游標在此資源上，可放置預覽 */
-  highlightAsDropTarget?: boolean;
-  /** 剛採集完成，播晃動 */
-  playShake?: boolean;
-  /** 遞增時強制重播晃動（用於連點連續觸發） */
-  shakeKey?: number;
-  /** 剛裝水完成，播漣漪 */
-  playRipple?: boolean;
-  /** 靠近時泡泡說明（與可接任務泡泡同風格），由 objectsTable 設定 */
-  proximityBubbleText?: string;
-  /** 點擊泡泡時觸發（與點擊圓圈同效果） */
-  onTap?: () => void;
+  highlightAsDropTarget?: boolean;  // 拖曳道具時游標在此資源上，可放置預覽
+  playShake?: boolean;  // 剛採集完成，播晃動
+  shakeKey?: number;  // 遞增時強制重播晃動（用於連點連續觸發）
+  playRipple?: boolean;  // 剛裝水完成，播漣漪
+  proximityBubbleText?: string;  // 靠近時泡泡說明
+  onTap?: () => void;  // 點擊泡泡時觸發（與點擊圓圈同效果）
 }
 
 export function ResourceNodeView({

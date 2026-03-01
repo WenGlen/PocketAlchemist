@@ -1,18 +1,22 @@
+//════════════════════════════════════════════════════════════════
+// 頂部工具列
+//════════════════════════════════════════════════════════════════
+// 顯示標題、版本號、音效開關、任務選單
+
 import { useState, useRef, useEffect } from 'react';
 import type { MissionEntry } from '../../quests/data/missionList';
 import { APP_VERSION } from '../version';
 import { useAudioMute } from '../../assets/audio';
 import { getQuest, isQuestUnlocked } from '../../quests/data/questData';
 
+// ========== Props ==========
+
 interface TopBarProps {
   currentMapId: string;
-  /** 當前選中的任務 ID（與 mission 的 questId 比對） */
-  currentQuestId: string;
+  currentQuestId: string;  // 當前選中的任務 ID（與 mission 的 questId 比對）
   missions: MissionEntry[];
-  /** 已完成任務 ID 清單，供串鏈任務鎖定判斷 */
-  completedQuestIds: string[];
-  /** 選擇任務：傳入該任務的 mapId 與 questId */
-  onSelectMission: (mapId: string, questId: string) => void;
+  completedQuestIds: string[];  // 已完成任務 ID 清單，供串鏈任務鎖定判斷
+  onSelectMission: (mapId: string, questId: string) => void;  // 選擇任務：傳入該任務的 mapId 與 questId
 }
 
 export function TopBar({ currentMapId, currentQuestId, missions, completedQuestIds, onSelectMission }: TopBarProps) {

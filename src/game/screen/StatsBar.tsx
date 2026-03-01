@@ -1,12 +1,15 @@
+//════════════════════════════════════════════════════════════════
+// 數值列（HP 等）
+//════════════════════════════════════════════════════════════════
+// 頂部選單與地圖之間的數值區：顯示 HP 等能力數值
+// 顯示內容由 statsConfig + game state 決定，本元件只負責呈現
+
 import type { StatValue } from './statsConfig';
 
-/**
- * 頂部選單與地圖之間的數值區：顯示 HP 等能力數值。
- * 顯示內容由 config/statsConfig + game state 決定，本元件只負責呈現。
- */
+// ========== Props ==========
+
 interface StatsBarProps {
-  /** 要顯示的數值列表（由 getDisplayStats 產生）；空則不渲染區塊 */
-  stats: StatValue[];
+  stats: StatValue[];  // 要顯示的數值列表（由 getDisplayStats 產生）；空則不渲染區塊
 }
 
 export function StatsBar({ stats }: StatsBarProps) {

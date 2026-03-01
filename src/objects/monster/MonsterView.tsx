@@ -1,20 +1,22 @@
+//════════════════════════════════════════════════════════════════
+// 怪物視圖
+//════════════════════════════════════════════════════════════════
+// 顯示怪物圓圈、emoji、冷卻圈、暈眩狀態、Debug 攻擊範圍
+
 import { useMemo } from 'react';
-import type { MonsterDef } from '../../core/types/entity';
+import type { MonsterDef } from '../data/objectsTable';
 import { ObjectView } from '../shared/ObjectView';
-import { debugConfig } from '../debugForObjects';
-import { ISO_VISUAL, OPACITY, MONSTER_STUN_RECOVER_DURATION } from '../objectsConstants';
+import { ISO_VISUAL, OPACITY, MONSTER_STUN_RECOVER_DURATION, debugConfig } from '../objectsConstants';
+
+// ========== Props ==========
 
 interface MonsterViewProps {
   monster: MonsterDef;
-  /** 即時位置（有巡邏時由 game state 提供）；未傳則用 monster.x, monster.y */
-  position?: { x: number; y: number };
+  position?: { x: number; y: number };  // 即時位置（有巡邏時由 game state 提供）
   stunned?: boolean;
-  /** monsterStunUntil 時間戳：用於暈眩圈 key（每次重新暈眩即重置圈動畫） */
-  monsterStunUntil?: number;
-  /** 最後一次實際攻擊的時間戳（用於 shake wrapper key）；0 = 從未攻擊 */
-  lastHitTime?: number;
-  /** 冷卻圈起始時間戳（攻擊後 or 暈眩結束時更新）；0 = 初始靜止 */
-  lastCooldownResetTime?: number;
+  monsterStunUntil?: number;  // 暈眩結束時間戳：用於暈眩圈 key
+  lastHitTime?: number;  // 最後一次實際攻擊的時間戳（用於 shake wrapper key）
+  lastCooldownResetTime?: number;  // 冷卻圈起始時間戳（攻擊後 or 暈眩結束時更新）
 }
 
 export function MonsterView({

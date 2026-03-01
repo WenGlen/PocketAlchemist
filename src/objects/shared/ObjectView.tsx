@@ -1,33 +1,27 @@
-import { debugConfig } from '../debugForObjects';
-import { ISO_VISUAL, BUBBLE_SPACING } from '../objectsConstants';
+import { ISO_VISUAL, BUBBLE_SPACING, debugConfig } from '../objectsConstants';
 
-/**
- * ObjectView — 地圖非地形物件的統一視覺層。
- *
- * 渲染層次（由下到上）：
- *   z-0   定位圈（ground ring）橢圓 — 承載顏色、邊框、陰影、動態
- *   z-0.5 extraGroundRings（怪物冷卻/暈眩環，橢圓，疊在定位圈上）
- *   z-1   漣漪圓（ripple）— 物件寬 × 0.5，置中
- *   z-2   emoji — 物件寬為字體大小，xy 絕對置中
- *   z-3   名稱標籤 — 容器下方 top-full mt-1
- *   z-10  互動泡泡 — top-full -translate-y-full（壓到圈底、名稱上方）
- */
+//════════════════════════════════════════════════════════════════
+// ObjectView — 地圖非地形物件的統一視覺層。
+//════════════════════════════════════════════════════════════════
+// 渲染層次（由下到上）：
+//   z-0   定位圈（ground ring）橢圓 — 承載顏色、邊框、陰影、動態
+//   z-0.5 extraGroundRings（怪物冷卻/暈眩環，橢圓，疊在定位圈上）
+//   z-1   漣漪圓（ripple）— 物件寬 × 0.5，置中
+//   z-2   名稱標籤 — 容器下方 top-full mt-1
+//   z-3   （預留主角用）
+//   z-4   emoji — 物件寬為字體大小，xy 絕對置中
+//   z-10  互動泡泡 — top-full -translate-y-full（壓到圈底、名稱上方）
+//════════════════════════════════════════════════════════════════
 
 interface ObjectViewProps {
-  /** 物件中心 x（世界座標） */
-  x: number;
-  /** 物件中心 y（世界座標） */
-  y: number;
-  /** 物件寬度（px），預設 radius * 2 */
-  width: number;
-  /** 物件高度（px），預設 = width */
-  height: number;
-  /** 圓角（px），預設 = width（全圓） */
-  cornerRadius?: number;
-  /** 顯示於物件正中心的 emoji */
-  emoji?: string;
-  /** 顯示於物件下方的名稱 */
-  displayName?: string;
+  x: number;  // 物件中心 x（世界座標）
+  y: number;  // 物件中心 y（世界座標）
+  width: number;  // 物件寬度（px），預設 radius * 2
+  height: number;  // 物件高度（px），預設 = width
+  cornerRadius?: number;  // 圓角（px），預設 = width（全圓）
+  emoji?: string;  // 顯示於物件正中心的 emoji
+  subEmoji?: string;  // 顯示於物件正中心、主 emoji 上方的次要 emoji（如 NPC 的職業小圖示）
+  displayName?: string;  // 顯示於物件下方的名稱
 
   // ── 定位圈視覺狀態 ──────────────────────────────────────────────
   ringBgColor?: string;
@@ -35,39 +29,23 @@ interface ObjectViewProps {
   ringBorderWidth?: number;
   ringShadow?: string;
   ringOpacity?: number;
-  /** 動畫 class（如 animate-resource-shake） */
-  ringClassName?: string;
-  /** 動畫 timing 等 inline style */
-  ringStyle?: React.CSSProperties;
-  /** 怪物用：疊在定位圈上的額外環層（冷卻圈、暈眩圈等） */
-  extraGroundRings?: React.ReactNode;
+  ringClassName?: string;  // 動畫 class（如 animate-resource-shake）
+  ringStyle?: React.CSSProperties;  // 動畫 timing 等 inline style
+  extraGroundRings?: React.ReactNode;  // 怪物用：疊在定位圈上的額外環層（冷卻圈、暈眩圈等）
 
-  // ── 動畫 ────────────────────────────────────────────────────────
-  /** true → emoji wrapper 套用 animate-resource-shake */
-  playShake?: boolean;
-  /** key 控制 remount 以重播晃動 */
-  shakeKey?: number;
-  /** true → 渲染漣漪圓（z-1，emoji 下方） */
-  playRipple?: boolean;
+  playShake?: boolean;  // true → emoji wrapper 套用 animate-resource-shake
+  shakeKey?: number;  // key 控制 remount 以重播晃動
+  playRipple?: boolean;  // true → 渲染漣漪圓（z-1，emoji 下方）
 
   // ── 互動泡泡 ────────────────────────────────────────────────────
   bubbleText?: string | null;
-  /** true → <button>（NPC 任務泡泡、資源點 tap 泡泡）；false → <div aria-hidden> */
-  bubbleClickable?: boolean;
+  bubbleClickable?: boolean;  // true → <button>（NPC 任務泡泡、資源點 tap 泡泡）；false → <div aria-hidden>
   onBubbleClick?: () => void;
 
-  // ── drag-drop ───────────────────────────────────────────────────
-  dataResourceDrop?: string;
-
-  /** 整體物件透明度（0–1），用於 disabled 等狀態 */
-  opacity?: number;
-
-  /**
-   * 容器 div 的 z-index（建立 stacking context）。
-   * 主角傳入 3 可確保顯示在名稱文字（z-2）之上、其他物件 emoji（z-3）之下。
-   */
-  containerZIndex?: number;
-
+  // ── 資源點互動 ──────────────────────────────────────────────────
+  dataResourceDrop?: string;  // 資源點 ID
+  opacity?: number;  // 整體物件透明度（0–1），用於 disabled 等狀態
+  containerZIndex?: number;  // 容器 div 的 z-index（建立 stacking context）。主角傳入 3 可確保顯示在名稱文字（z-2）之上、其他物件 emoji（z-3）之下。
   title?: string;
 }
 
@@ -78,6 +56,7 @@ export function ObjectView({
   height,
   cornerRadius,
   emoji,
+  subEmoji,
   displayName,
   ringBgColor,
   ringBorderColor,
@@ -98,6 +77,8 @@ export function ObjectView({
   containerZIndex,
   title,
 }: ObjectViewProps) {
+  
+  // 用於計算定位圈和漣漪圓的尺寸
   const ringH = width * ISO_VISUAL.RING_HEIGHT_RATIO;
   const rippleSize = width * ISO_VISUAL.RIPPLE_SIZE_RATIO;
 
@@ -175,6 +156,24 @@ export function ObjectView({
           aria-hidden
         >
           {emoji}
+        </div>
+      )}
+
+      {/* ── SubEmoji（左下角，1/4 大小）─── */}
+      {subEmoji && (
+        <div
+          className="absolute flex items-center justify-center pointer-events-none select-none leading-none"
+          style={{
+            left: 0,
+            bottom: 0,
+            width: width / 2,
+            height: width / 4,
+            fontSize: width / 2,
+            zIndex: 5,
+          }}
+          aria-hidden
+        >
+          {subEmoji}
         </div>
       )}
 

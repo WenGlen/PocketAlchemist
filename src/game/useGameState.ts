@@ -1,3 +1,9 @@
+//════════════════════════════════════════════════════════════════
+// 遊戲狀態 Hook
+//════════════════════════════════════════════════════════════════
+// 管理玩家位置、血量、任務進度、怪物暈眩、地形清除等遊戲核心狀態
+// 提供 selectMission、tryStunMonster、clearTerrain 等操作接口
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { objectTable, npcsByMap, resourceNodes, resourceNodesByMap, objTerrains, objMonsters, getInitialResourceRemainingForMap, getBlockingTerrainsForMap, getLabMonster } from '../objects/data/objectsTable';
 import type { LastResourceFeedback } from '../objects/resource/resourceEffectRegistry';
@@ -18,6 +24,8 @@ import {
 import { DEFAULT_ENTITY_RADIUS, FEEDBACK_CLEAR_MS, STUN_FEEDBACK_CLEAR_MS } from '../objects/objectsConstants';
 import { getMap } from '../maps/data/mapsTable';
 import { playSound } from '../assets/audio';
+
+// ========== 工具函數 ==========
 
 function getSpawnForMap(mapId: string) {
   const mapData = getMap(mapId);
@@ -53,12 +61,15 @@ function wouldOverlap(
   );
 }
 
+// ========== 型別定義 ==========
+
 export interface ControlRingState {
   visible: boolean;
   screenX: number;
   screenY: number;
 }
 
+// 鍵盤方向對映
 const KEY_TO_DIR: Record<string, { x: number; y: number }> = {
   ArrowUp: { x: 0, y: -1 },
   ArrowDown: { x: 0, y: 1 },
@@ -72,7 +83,10 @@ const KEY_TO_DIR: Record<string, { x: number; y: number }> = {
 
 export type GameOutcome = 'playing' | 'success' | 'fail';
 
+// ========== 主 Hook ==========
+
 export function useGameState() {
+  // ── 核心狀態 ────────────────────────────────────────────────────
   const [mapId, setMapId] = useState(DEFAULT_MAP_ID);
   const mapData = getMap(mapId);
   const boundsW = mapData?.width ?? DEFAULT_MAP_WIDTH;
@@ -86,55 +100,38 @@ export function useGameState() {
   const [moveDirection, setMoveDirection] = useState({ x: 0, y: 0 });
   const [dialogueOpen, setDialogueOpen] = useState(false);
   const [dialogueNpcId, setDialogueNpcId] = useState<string | null>(null);
-  /** 主線任務：none | accepted | completed；進行中時用 questStepIndex 對應 steps[i] */
-  const [questPhase, setQuestPhase] = useState<'none' | 'accepted' | 'completed'>('none');
-  /** 當前步驟索引（0-based），僅在 questPhase === 'accepted' 時有效 */
-  const [questStepIndex, setQuestStepIndex] = useState(0);
-  /** 資源點剩餘可採次數（僅有 maxGather 的節點），key = nodeId */
+  const [questPhase, setQuestPhase] = useState<'none' | 'accepted' | 'completed'>('none');  // 主線任務：none | accepted | completed
+  const [questStepIndex, setQuestStepIndex] = useState(0);  // 當前步驟索引（0-based）
   const [resourceRemaining, setResourceRemaining] = useState<Record<string, number>>(() =>
     getInitialResourceRemainingForMap(DEFAULT_MAP_ID)
-  );
-  /** 最後一次觸發的資源互動特效（晃動+浮動文字 或 漣漪+浮動文字），由 MapArea 驅動動畫 */
-  const [lastResourceFeedback, setLastResourceFeedback] = useState<LastResourceFeedback | null>(null);
-  /** MVP-01：血量（僅 lab 使用） */
-  const [hp, setHp] = useState(HP_MAX);
-  /** 同步追蹤 hp 的 ref，供 RAF / setInterval 在下一個 setHp 前判斷 damage vs fail 音效 */
-  const hpRef = useRef(HP_MAX);
-  /** MVP-01：成功 / 失敗 / 進行中 */
-  const [gameOutcome, setGameOutcome] = useState<GameOutcome>('playing');
-  /** MVP-01：怪物暈眩結束時間戳 */
-  const [monsterStunUntil, setMonsterStunUntil] = useState(0);
-  /** patrol RAF 內讀取暈眩時間用（不觸發 re-render） */
-  const monsterStunUntilRef = useRef(0);
-  /** patrol RAF 內讀取遊戲結果用（不觸發 re-render） */
-  const gameOutcomeRef = useRef<GameOutcome>('playing');
+  );  // 資源點剩餘可採次數（key = nodeId）
+  const [lastResourceFeedback, setLastResourceFeedback] = useState<LastResourceFeedback | null>(null);  // 最後觸發的資源互動特效
+  const [hp, setHp] = useState(HP_MAX);  // MVP-01：血量
+  const hpRef = useRef(HP_MAX);  // 同步追蹤 hp 的 ref，供 RAF / setInterval 判斷音效
+  const [gameOutcome, setGameOutcome] = useState<GameOutcome>('playing');  // MVP-01：成功 / 失敗 / 進行中
+  const [monsterStunUntil, setMonsterStunUntil] = useState(0);  // MVP-01：怪物暈眩結束時間戳
+  const monsterStunUntilRef = useRef(0);  // patrol RAF 內讀取暈眩時間用
+  const gameOutcomeRef = useRef<GameOutcome>('playing');  // patrol RAF 內讀取遊戲結果用
   gameOutcomeRef.current = gameOutcome;
-  /** MVP-01：tap 使用地形（需藥劑清除）時，選中的藥劑 itemId */
-  const [selectedPotionItemId, setSelectedPotionItemId] = useState<string | null>(null);
-  /** 已清除的地形 id（passable=false + requiredItemId 的地形用藥劑清除後記錄） */
-  const [terrainClearedIds, setTerrainClearedIds] = useState<Record<string, boolean>>({});
-  /** 當前選中的任務 ID（選單切換任務時更新） */
-  const [selectedQuestId, setSelectedQuestId] = useState(DEFAULT_QUEST_ID);
-  /** 選單切換／重新開始時遞增，供背包等重置 */
-  const [missionResetKey, setMissionResetKey] = useState(0);
-  /** 怪物每次實際攻擊的時間戳（用於閃光 / 晃動動畫）；初始為空 */
-  const [monsterLastHitTimes, setMonsterLastHitTimes] = useState<Record<string, number>>({});
-  /** 冷卻圈起始時間戳（實際攻擊後 or 暈眩結束時更新，與 lastHitTimes 解耦）；初始為空 */
-  const [monsterCooldownResetTimes, setMonsterCooldownResetTimes] = useState<Record<string, number>>({});
-  /** 最後一次暈眩觸發（連點 key 遞增以重播動畫） */
-  const [lastStunFeedback, setLastStunFeedback] = useState<{ monsterId: string; label: string; key: number } | null>(null);
-  /** 怪物即時位置（有 patrol 的會隨時間更新；key = monsterId） */
+  const [selectedPotionItemId, setSelectedPotionItemId] = useState<string | null>(null);  // tap 使用地形時選中的藥劑
+  const [terrainClearedIds, setTerrainClearedIds] = useState<Record<string, boolean>>({});  // 已清除的地形 id
+  const [selectedQuestId, setSelectedQuestId] = useState(DEFAULT_QUEST_ID);  // 當前選中的任務 ID
+  const [missionResetKey, setMissionResetKey] = useState(0);  // 選單切換時遞增，供背包等重置
+  const [monsterLastHitTimes, setMonsterLastHitTimes] = useState<Record<string, number>>({});  // 怪物攻擊時間戳（用於閃光動畫）
+  const [monsterCooldownResetTimes, setMonsterCooldownResetTimes] = useState<Record<string, number>>({});  // 冷卻圈起始時間戳
+  const [lastStunFeedback, setLastStunFeedback] = useState<{ monsterId: string; label: string; key: number } | null>(null);  // 最後一次暈眩觸發
   const [monsterPositions, setMonsterPositions] = useState<Record<string, { x: number; y: number }>>(() =>
     Object.fromEntries(objMonsters.map((m) => [m.id, { x: m.x, y: m.y }]))
-  );
-  /** 巡邏方向 1 | -1，僅用 ref 在 RAF 內更新，不觸發 re-render */
+  );  // 怪物即時位置
   const monsterPatrolDirectionRef = useRef<Record<string, 1 | -1>>(
     Object.fromEntries(objMonsters.filter((m) => m.patrol).map((m) => [m.id, 1]))
-  );
+  );  // 巡邏方向 1 | -1
   const lastTime = useRef<number>(0);
   const keysPressed = useRef<Set<string>>(new Set());
 
   const mapLocked = dialogueOpen;
+
+  // ── 控制環操作 ──────────────────────────────────────────────────
 
   const showControlRing = useCallback((screenX: number, screenY: number) => {
     setControlRing({ visible: true, screenX, screenY });
@@ -155,6 +152,8 @@ export function useGameState() {
     setDialogueNpcId(null);
   }, []);
 
+  // ── 任務操作 ─────────────────────────────────────────────────────
+
   const acceptQuest = useCallback(() => {
     setQuestPhase('accepted');
     setQuestStepIndex((i) => i + 1);
@@ -162,12 +161,14 @@ export function useGameState() {
   const completeQuest = useCallback(() => setQuestPhase('completed'), []);
   const advanceQuestStep = useCallback(() => setQuestStepIndex((i) => i + 1), []);
 
-  /** 資源點：取得剩餘可採次數（無 maxGather 的節點回傳 undefined，視為無限） */
+  // ── 資源點操作 ──────────────────────────────────────────────────
+
+  // 取得剩餘可採次數（無 maxGather 的節點回傳 undefined，視為無限）
   const getResourceRemaining = useCallback(
     (nodeId: string) => resourceRemaining[nodeId],
     [resourceRemaining]
   );
-  /** 資源點：記錄一次採集／交換並觸發對應特效；若有 gatherLimit 會扣剩餘次數 */
+  // 記錄一次採集／交換並觸發對應特效；若有 gatherLimit 會扣剩餘次數
   const recordResourceGather = useCallback(
     (nodeId: string, options: { effectId: string; label: string; gatherLimit?: number }) => {
       const { effectId, label, gatherLimit } = options;
@@ -187,7 +188,9 @@ export function useGameState() {
     []
   );
 
-  /** MVP-01：點擊怪物暈眩（依各怪物 stunDurationMs，未設則不暈眩）；連點重置倒計時並重播提示 */
+  // ── 怪物暈眩操作 ────────────────────────────────────────────────
+
+  // MVP-01：點擊怪物暈眩（依各怪物 stunDurationMs）；連點重置倒計時並重播提示
   const tryStunMonster = useCallback((monsterId: string) => {
     if (interactionConfig.monsterTapEffect !== 'stun') return;
     const monster = getLabMonster(monsterId);
@@ -207,12 +210,14 @@ export function useGameState() {
     }));
   }, []);
 
-  /** 用藥劑清除地形（drag 或 tap 成功後呼叫） */
+  // ── 地形操作 ─────────────────────────────────────────────────────
+
+  // 用藥劑清除地形（drag 或 tap 成功後呼叫）
   const clearTerrain = useCallback((terrainId: string) => {
     setTerrainClearedIds((prev) => ({ ...prev, [terrainId]: true }));
   }, []);
 
-  /** MVP-01：選中藥劑（tap 模式點障礙物時使用） */
+  // MVP-01：選中藥劑（tap 模式點障礙物時使用）
   const setSelectedPotion = useCallback((itemId: string | null) => {
     setSelectedPotionItemId(itemId);
   }, []);
@@ -231,10 +236,9 @@ export function useGameState() {
     return () => clearTimeout(t);
   }, [lastStunFeedback]);
 
-  /**
-   * 已完成任務 ID 清單：持久化於 localStorage，供串鏈前置條件判斷與 UI 鎖定顯示。
-   * 只新增不刪除，玩家重複完成同一任務不會影響其他任務的解鎖狀態。
-   */
+  // ── 任務完成紀錄 ────────────────────────────────────────────────
+  // 持久化於 localStorage，供串鏈前置條件判斷與 UI 鎖定顯示
+  // 只新增不刪除，玩家重複完成同一任務不會影響其他任務的解鎖狀態
   const [completedQuestIds, setCompletedQuestIds] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem('pa_completed_quests');
@@ -244,7 +248,7 @@ export function useGameState() {
     }
   });
 
-  /** 記錄任務完成，去重後寫入 localStorage */
+  // 記錄任務完成，去重後寫入 localStorage
   const recordQuestCompletion = useCallback((questId: string) => {
     setCompletedQuestIds((prev) => {
       if (prev.includes(questId)) return prev;
@@ -256,7 +260,9 @@ export function useGameState() {
     });
   }, []);
 
-  /** 選單：選擇任務（切換或重新開始）；傳入該任務的 mapId 與 questId */
+  // ── 任務選擇 ─────────────────────────────────────────────────────
+
+  // 選單：選擇任務（切換或重新開始）；傳入該任務的 mapId 與 questId
   const selectMission = useCallback((nextMapId: string, nextQuestId: string) => {
     setPlayerPosition(getSpawnForMap(nextMapId));
     setMapId(nextMapId);
@@ -283,6 +289,8 @@ export function useGameState() {
     setMonsterCooldownResetTimes({});
     setMissionResetKey((k) => k + 1);
   }, []);
+
+  // ── 鍵盤控制 ─────────────────────────────────────────────────────
 
   // 鍵盤方向鍵 / WASD：桌機兼容
   useEffect(() => {
@@ -336,6 +344,8 @@ export function useGameState() {
     };
   }, []);
 
+  // ── 移動與碰撞 ───────────────────────────────────────────────────
+
   // 每幀根據 moveDirection 更新玩家位置
   useEffect(() => {
     let rafId: number;
@@ -363,6 +373,8 @@ export function useGameState() {
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, [moveDirection, mapId, boundsW, boundsH, terrainClearedIds]);
+
+  // ── 怪物巡邏與攻擊 ───────────────────────────────────────────────
 
   // 怪物巡邏：有 patrol 的怪物每幀更新位置（左右或上下來回）
   useEffect(() => {
@@ -434,15 +446,18 @@ export function useGameState() {
     return () => cancelAnimationFrame(rafId);
   }, [mapId]);
 
+  // ── Refs（供 RAF / setInterval 讀取） ────────────────────────────
+
   const playerPositionRef = useRef(playerPosition);
   playerPositionRef.current = playerPosition;
   const monsterPositionsRef = useRef<Record<string, { x: number; y: number }>>(monsterPositions);
   monsterPositionsRef.current = monsterPositions;
-  /** 怪物上次攻擊時間戳（ref，不觸發 re-render）；初始為 0 代表冷卻完畢，玩家進範圍即可立刻攻擊 */
-  const monsterLastAttackRef = useRef<Record<string, number>>(
+  const monsterLastAttackRef = useRef<Record<string, number>>(  // 怪物上次攻擊時間戳，初始 0 代表冷卻完畢
     Object.fromEntries(objMonsters.map((m) => [m.id, 0]))
   );
   const lastTerrainDamageRef = useRef<Record<string, number>>({});
+
+  // ── 地形傷害 ─────────────────────────────────────────────────────
 
   // MVP-01：proximity 節流 — 地形持續扣血（怪物攻擊已移入 RAF 以確保動畫同步）
   useEffect(() => {

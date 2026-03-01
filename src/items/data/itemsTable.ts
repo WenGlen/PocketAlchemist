@@ -1,8 +1,11 @@
-/**
- * 全遊戲道具定義與性質的單一來源。
- * 堆疊（stackable / maxStack）、名稱、圖示等皆以此表為準；
- * 任務、合成表、資源點僅引用 itemId，勿在別處重複定義性質。
- */
+//════════════════════════════════════════════════════════════════
+// 道具定義表
+//════════════════════════════════════════════════════════════════
+// 全遊戲道具定義與性質的單一來源
+// 堆疊、名稱、圖示等皆以此表為準
+// 任務、合成表、資源點僅引用 itemId，勿在別處重複定義性質
+//════════════════════════════════════════════════════════════════
+
 export type ItemSubCategory = 'pot' | 'mat' | 'eqp' | 'qst';
 
 export interface ItemDef {
@@ -11,11 +14,11 @@ export interface ItemDef {
   icon: string;
   description: string;
   subCategory: ItemSubCategory;
-  /** 是否可堆疊（與 maxStack 並用：未設 maxStack 時視為 99） */
-  stackable: boolean;
-  /** 單格最大堆疊數，未設時可堆疊物為 99、不可堆疊為 1 */
-  maxStack?: number;
+  stackable: boolean;  // 是否可堆疊（與 maxStack 並用：未設 maxStack 時視為 99）
+  maxStack?: number;  // 單格最大堆疊數，未設時可堆疊物為 99、不可堆疊為 1
 }
+
+// ========== 素材 ==========
 
 export const ITM_MAT_0001: ItemDef = {
   id: 'ITM-mat-0001',
@@ -47,17 +50,6 @@ export const ITM_MAT_0003: ItemDef = {
   maxStack: 1,
 };
 
-export const ITM_POT_0001: ItemDef = {
-  id: 'ITM-pot-0001',
-  name: '不好喝的茶',
-  icon: '/placeholder-icon.svg',
-  description: '茶葉與湖水合成的茶',
-  subCategory: 'pot',
-  stackable: false,
-  maxStack: 1,
-};
-
-/** MVP-01 測試場景用 */
 export const ITM_MAT_0004: ItemDef = {
   id: 'ITM-mat-0004',
   name: '藥草',
@@ -76,6 +68,18 @@ export const ITM_MAT_0006: ItemDef = {
   subCategory: 'mat',
   stackable: true,
   maxStack: 99,
+};
+
+// ========== 藥劑 ==========
+
+export const ITM_POT_0001: ItemDef = {
+  id: 'ITM-pot-0001',
+  name: '不好喝的茶',
+  icon: '/placeholder-icon.svg',
+  description: '茶葉與湖水合成的茶',
+  subCategory: 'pot',
+  stackable: false,
+  maxStack: 1,
 };
 
 export const ITM_POT_0002: ItemDef = {
@@ -97,6 +101,8 @@ export const ITM_POT_0003: ItemDef = {
   stackable: false,
   maxStack: 1,
 };
+
+// ========== 道具表與查詢 ==========
 
 export const itemTable: Record<string, ItemDef> = {
   [ITM_MAT_0001.id]: ITM_MAT_0001,

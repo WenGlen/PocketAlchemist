@@ -1,7 +1,9 @@
-/**
- * 地圖「內容物」：依 mapId 取得實體清單、解析資源特效、產出 hitTestTargets 與實體視圖。
- * 由 GameScreen 使用，結果傳給 MapArea（基底＋移動）做擺放與點擊判定。
- */
+//════════════════════════════════════════════════════════════════
+// 地圖內容物 Hook
+//════════════════════════════════════════════════════════════════
+// 依 mapId 取得實體清單、解析資源特效、產出 hitTestTargets 與實體視圖
+// 由 GameScreen 使用，結果傳給 MapArea（基底＋移動）做擺放與點擊判定
+
 import { useMemo } from 'react';
 import {
   objectTable,
@@ -23,6 +25,8 @@ import { NpcView } from '../../objects/npc/NpcView';
 import { ResourceNodeView } from '../../objects/resource/ResourceNodeView';
 import { TerrainView } from '../../objects/terrain/TerrainView';
 import { MonsterView } from '../../objects/monster/MonsterView';
+
+// ========== 型別定義 ==========
 
 export interface HitTestTarget {
   id: string;
