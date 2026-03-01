@@ -3,8 +3,9 @@
  * 不控管任何內容物（NPC／資源／怪物／障礙物）；內容由 useMapContent 產出，以 children 傳入。
  */
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { interactionConfig } from '../../core/config/interactionConfig';
+import { interactionConfig } from '../interactionConfig';
 import { getMap } from '../../maps/data/mapsTable';
+import { DEFAULT_VIEWPORT_SIZE } from '../../maps/mapConstants';
 import { OBJ_ROLE_001 } from '../../objects/data/objectsTable';
 import { ObjectView } from '../../objects/shared/ObjectView';
 import { debugConfig } from '../../objects/debugForObjects';
@@ -65,7 +66,7 @@ export function MapArea({
     screenY: number;
   } | null>(null);
   const [ringShownThisGesture, setRingShownThisGesture] = useState(false);
-  const [viewportSize, setViewportSize] = useState({ w: 400, h: 300 });
+  const [viewportSize, setViewportSize] = useState(DEFAULT_VIEWPORT_SIZE);
 
   useEffect(() => {
     const el = containerRef.current;

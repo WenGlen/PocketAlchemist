@@ -11,6 +11,16 @@ export interface MapTexture {
   };
 }
 
+/** 地圖特性：控制該地圖啟用哪些系統 */
+export interface MapFeatures {
+  /** 是否啟用怪物系統（巡邏、攻擊） */
+  hasMonsters?: boolean;
+  /** 是否啟用地形傷害（持續扣血地形） */
+  hasTerrainDamage?: boolean;
+  /** 該地圖顯示的數值列表（如 ['hp']） */
+  showStats?: string[];
+}
+
 export interface MapData {
   id: string;
   name: string;
@@ -18,6 +28,10 @@ export interface MapData {
   height: number;
   walkable?: boolean;
   texture?: MapTexture;
+  /** 玩家出生點座標 */
+  spawnPoint?: { x: number; y: number };
+  /** 地圖特性 */
+  features?: MapFeatures;
 }
 
 export const MAP_FIELD_001: MapData = {
@@ -35,6 +49,12 @@ export const MAP_FIELD_001: MapData = {
       bottom: 'var(--color-map-grass-bottom)',
     },
   },
+  spawnPoint: { x: 400, y: 300 },
+  features: {
+    hasMonsters: true,
+    hasTerrainDamage: true,
+    showStats: ['hp'],
+  },
 };
 
 /** 第二張地圖：幽林深處。三任務串鏈，NPC 複用，無怪物 */
@@ -50,6 +70,12 @@ export const MAP_FIELD_002: MapData = {
       mid: 'var(--color-map-grass-mid)',
       bottom: 'var(--color-map-grass-bottom)',
     },
+  },
+  spawnPoint: { x: 400, y: 300 },
+  features: {
+    hasMonsters: false,
+    hasTerrainDamage: false,
+    showStats: [],
   },
 };
 

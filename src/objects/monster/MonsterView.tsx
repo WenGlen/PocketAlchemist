@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { MonsterDef } from '../../core/types/entity';
 import { ObjectView } from '../shared/ObjectView';
 import { debugConfig } from '../debugForObjects';
+import { ISO_VISUAL, OPACITY, MONSTER_STUN_RECOVER_DURATION } from '../objectsConstants';
 
 interface MonsterViewProps {
   monster: MonsterDef;
@@ -28,7 +29,7 @@ export function MonsterView({
   const w = monster.hitbox?.width ?? r * 2;
   const h = monster.hitbox?.height ?? w;
   const ringW = w;
-  const ringH = w * 0.3;
+  const ringH = w * ISO_VISUAL.RING_HEIGHT_RATIO;
 
   const x = position?.x ?? monster.x;
   const y = position?.y ?? monster.y;
@@ -51,7 +52,7 @@ export function MonsterView({
 
   const ringDuration = `${monster.attackIntervalMs}ms`;
   const ringAnimDuration = isAttackCooldown
-    ? `${ringDuration}, ${ringDuration}, 0.5s`
+    ? `${ringDuration}, ${ringDuration}, ${MONSTER_STUN_RECOVER_DURATION}`
     : `${ringDuration}, ${ringDuration}`;
 
   // ── 定位圈狀態 ──
@@ -61,7 +62,7 @@ export function MonsterView({
   const ringBorderColor = stunned
     ? 'var(--color-monster-stunned)'
     : 'var(--color-monster-normal)';
-  const ringOpacity = stunned ? 0.6 : 1;
+  const ringOpacity = stunned ? OPACITY.STUNNED : OPACITY.IN_RANGE;
 
   // ── 額外環層（冷卻圈 / 暈眩圈），同定位圈尺寸橢圓 ──
   const extraGroundRings = (
@@ -117,7 +118,7 @@ export function MonsterView({
                 borderWidth: 2,
                 borderStyle: 'solid',
                 borderColor: 'var(--color-monster-cooldown)',
-                opacity: 0.75,
+                opacity: OPACITY.DEBUG_HITBOX,
                 zIndex: 0,
               }}
               aria-hidden
@@ -127,10 +128,10 @@ export function MonsterView({
     </>
   );
 
-  // ── Debug：攻擊判定範圍圓（圓心下移 0.25h、半徑 = min(w,h) × 0.75，與 hitTest 邏輯一致）
-  const hitRadius = Math.min(w, h) * 0.75;
+  // ── Debug：攻擊判定範圍圓（圓心下移、半徑縮放，與 hitTest 邏輯一致）
+  const hitRadius = Math.min(w, h) * ISO_VISUAL.HIT_RADIUS_SCALE;
   const hitCX = x;
-  const hitCY = y + h * 0.25;
+  const hitCY = y + h * ISO_VISUAL.HIT_CENTER_Y_OFFSET;
 
   return (
     <>

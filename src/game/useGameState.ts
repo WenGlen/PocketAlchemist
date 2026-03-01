@@ -1,18 +1,27 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { objectTable, npcsByMap, resourceNodes, resourceNodesByMap, objTerrains, objMonsters, getInitialResourceRemainingForMap, getBlockingTerrainsForMap, getLabMonster } from '../objects/data/objectsTable';
 import type { LastResourceFeedback } from '../objects/resource/resourceEffectRegistry';
-import { interactionConfig } from '../core/config/interactionConfig';
+import { interactionConfig } from './interactionConfig';
+import {
+  PLAYER_SPEED,
+  PLAYER_RADIUS,
+  DEFAULT_SPAWN,
+  HP_MAX,
+} from '../player/playerConstants';
+import {
+  PROXIMITY_TICK_MS,
+  DEFAULT_MAP_WIDTH,
+  DEFAULT_MAP_HEIGHT,
+  DEFAULT_MAP_ID,
+  DEFAULT_QUEST_ID,
+} from '../maps/mapConstants';
+import { DEFAULT_ENTITY_RADIUS, FEEDBACK_CLEAR_MS, STUN_FEEDBACK_CLEAR_MS } from '../objects/objectsConstants';
 import { getMap } from '../maps/data/mapsTable';
 import { playSound } from '../assets/audio';
 
-const PLAYER_SPEED = 200;
-const PLAYER_RADIUS = 20;
-const SPAWN = { x: 400, y: 300 };
-const HP_MAX = 100;
-const PROXIMITY_TICK_MS = 100;
-
-function getSpawnForMap(_mapId: string) {
-  return SPAWN;
+function getSpawnForMap(mapId: string) {
+  const mapData = getMap(mapId);
+  return mapData?.spawnPoint ?? DEFAULT_SPAWN;
 }
 
 function getObstaclesForMap(
@@ -25,7 +34,7 @@ function getObstaclesForMap(
     // NPC 碰撞以 positionByMap 優先，確保切換地圖後碰撞體在正確位置
     ...npcs.map((n) => {
       const pos = n.positionByMap?.[mapId];
-      return { x: pos?.x ?? n.x, y: pos?.y ?? n.y, radius: n.radius ?? 24 };
+      return { x: pos?.x ?? n.x, y: pos?.y ?? n.y, radius: n.radius ?? DEFAULT_ENTITY_RADIUS };
     }),
     ...nodes.map((n) => ({ x: n.x, y: n.y, radius: n.radius })),
     ...getBlockingTerrainsForMap(mapId, terrainClearedIds),
@@ -64,10 +73,10 @@ const KEY_TO_DIR: Record<string, { x: number; y: number }> = {
 export type GameOutcome = 'playing' | 'success' | 'fail';
 
 export function useGameState() {
-  const [mapId, setMapId] = useState('MAP-field-001');
+  const [mapId, setMapId] = useState(DEFAULT_MAP_ID);
   const mapData = getMap(mapId);
-  const boundsW = mapData?.width ?? 1600;
-  const boundsH = mapData?.height ?? 1200;
+  const boundsW = mapData?.width ?? DEFAULT_MAP_WIDTH;
+  const boundsH = mapData?.height ?? DEFAULT_MAP_HEIGHT;
   const [playerPosition, setPlayerPosition] = useState(() => getSpawnForMap(mapId));
   const [controlRing, setControlRing] = useState<ControlRingState>({
     visible: false,
@@ -83,7 +92,7 @@ export function useGameState() {
   const [questStepIndex, setQuestStepIndex] = useState(0);
   /** 資源點剩餘可採次數（僅有 maxGather 的節點），key = nodeId */
   const [resourceRemaining, setResourceRemaining] = useState<Record<string, number>>(() =>
-    getInitialResourceRemainingForMap('MAP-field-001')
+    getInitialResourceRemainingForMap(DEFAULT_MAP_ID)
   );
   /** 最後一次觸發的資源互動特效（晃動+浮動文字 或 漣漪+浮動文字），由 MapArea 驅動動畫 */
   const [lastResourceFeedback, setLastResourceFeedback] = useState<LastResourceFeedback | null>(null);
@@ -105,7 +114,7 @@ export function useGameState() {
   /** 已清除的地形 id（passable=false + requiredItemId 的地形用藥劑清除後記錄） */
   const [terrainClearedIds, setTerrainClearedIds] = useState<Record<string, boolean>>({});
   /** 當前選中的任務 ID（選單切換任務時更新） */
-  const [selectedQuestId, setSelectedQuestId] = useState('QST-main-001');
+  const [selectedQuestId, setSelectedQuestId] = useState(DEFAULT_QUEST_ID);
   /** 選單切換／重新開始時遞增，供背包等重置 */
   const [missionResetKey, setMissionResetKey] = useState(0);
   /** 怪物每次實際攻擊的時間戳（用於閃光 / 晃動動畫）；初始為空 */
@@ -211,14 +220,14 @@ export function useGameState() {
   // 互動特效：浮動文字播完後清掉，以便同一節點可再次觸發
   useEffect(() => {
     if (!lastResourceFeedback) return;
-    const t = setTimeout(() => setLastResourceFeedback(null), 700);
+    const t = setTimeout(() => setLastResourceFeedback(null), FEEDBACK_CLEAR_MS);
     return () => clearTimeout(t);
   }, [lastResourceFeedback]);
 
   // 暈眩浮動文字：播完後清掉
   useEffect(() => {
     if (!lastStunFeedback) return;
-    const t = setTimeout(() => setLastStunFeedback(null), 700);
+    const t = setTimeout(() => setLastStunFeedback(null), STUN_FEEDBACK_CLEAR_MS);
     return () => clearTimeout(t);
   }, [lastStunFeedback]);
 
@@ -357,7 +366,7 @@ export function useGameState() {
 
   // 怪物巡邏：有 patrol 的怪物每幀更新位置（左右或上下來回）
   useEffect(() => {
-    if (mapId !== 'MAP-field-001') return;
+    if (!mapData?.features?.hasMonsters) return;
     let rafId: number;
     let last = 0;
     const tick = (time: number) => {
@@ -437,7 +446,7 @@ export function useGameState() {
 
   // MVP-01：proximity 節流 — 地形持續扣血（怪物攻擊已移入 RAF 以確保動畫同步）
   useEffect(() => {
-    if (mapId !== 'MAP-field-001' || gameOutcome !== 'playing') return;
+    if (!mapData?.features?.hasTerrainDamage || gameOutcome !== 'playing') return;
     const interval = setInterval(() => {
       const pos = playerPositionRef.current;
       const now = Date.now();

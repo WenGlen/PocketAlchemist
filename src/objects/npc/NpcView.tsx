@@ -1,6 +1,7 @@
 import type { NpcDef } from '../data/objectsTable';
 import { getItem } from '../../items/data/itemsTable';
 import { ObjectView } from '../shared/ObjectView';
+import { DEFAULT_ENTITY_RADIUS, OPACITY } from '../objectsConstants';
 
 interface NpcViewProps {
   npc: NpcDef;
@@ -13,7 +14,7 @@ interface NpcViewProps {
 }
 
 export function NpcView({ npc, inRange, demandItemId, demandLabel, onBubbleClick }: NpcViewProps) {
-  const r = npc.radius ?? 24;
+  const r = npc.radius ?? DEFAULT_ENTITY_RADIUS;
   const w = npc.hitbox?.width ?? r * 2;
   const h = npc.hitbox?.height ?? w;
   const bubbleText = demandLabel ?? (demandItemId ? getItem(demandItemId)?.name : null);
@@ -21,7 +22,7 @@ export function NpcView({ npc, inRange, demandItemId, demandLabel, onBubbleClick
   const ringBgColor = inRange ? 'var(--color-secondary)' : 'var(--color-secondary-50)';
   const ringBorderColor = inRange ? 'var(--color-object-focus)' : 'var(--color-npc-normal)';
   const ringShadow = inRange ? '0 0 12px var(--color-primary-50)' : undefined;
-  const ringOpacity = inRange ? 1 : 0.8;
+  const ringOpacity = inRange ? OPACITY.IN_RANGE : OPACITY.OUT_OF_RANGE;
 
   return (
     <ObjectView

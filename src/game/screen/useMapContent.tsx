@@ -12,6 +12,12 @@ import {
   objMonsters,
   getGatherLimitForNode,
 } from '../../objects/data/objectsTable';
+import { getMap } from '../../maps/data/mapsTable';
+import {
+  ISO_VISUAL,
+  DEFAULT_ENTITY_RADIUS,
+  FLOAT_TEXT_OFFSET,
+} from '../../objects/objectsConstants';
 import { getResourceEffectOrDefault } from '../../objects/resource/resourceEffectRegistry';
 import { NpcView } from '../../objects/npc/NpcView';
 import { ResourceNodeView } from '../../objects/resource/ResourceNodeView';
@@ -98,30 +104,33 @@ export function useMapContent(
   const hitTestTargets: HitTestTargets = useMemo(
     () => ({
       npcs: npcs.map((n) => {
-        const w = n.hitbox?.width ?? (n.radius ?? 24) * 2;
+        const w = n.hitbox?.width ?? (n.radius ?? DEFAULT_ENTITY_RADIUS) * 2;
         const h = n.hitbox?.height ?? w;
         return { id: n.id, x: n.x, y: n.y, radius: Math.min(w, h) / 2 };
       }),
       resources: resources.map((r) => {
         const w = r.hitbox?.width ?? r.radius * 2;
         const h = r.hitbox?.height ?? w;
-        return { id: r.id, x: r.x, y: r.y + h * 0.25, radius: Math.min(w, h) };
+        return { id: r.id, x: r.x, y: r.y + h * ISO_VISUAL.HIT_CENTER_Y_OFFSET, radius: Math.min(w, h) };
       }),
-      monsters:
-        mapId === 'MAP-field-001'
-          ? objMonsters.map((m) => {
-              const pos = monsterPositions[m.id] ?? { x: m.x, y: m.y };
-              const w = m.hitbox?.width ?? m.radius * 2;
-              const h = m.hitbox?.height ?? w;
-              return { id: m.id, x: pos.x, y: pos.y + h * 0.25, radius: Math.min(w, h) * 0.75 };
-            })
-          : [],
-      terrains:
-        mapId === 'MAP-field-001'
-          ? objTerrains
-              .filter((t) => !(t.requiredItemId && terrainClearedIds[t.id]))
-              .map((t) => ({ id: t.id, x: t.x, y: t.y, radius: t.radius }))
-          : [],
+      monsters: getMap(mapId)?.features?.hasMonsters
+        ? objMonsters.map((m) => {
+            const pos = monsterPositions[m.id] ?? { x: m.x, y: m.y };
+            const w = m.hitbox?.width ?? m.radius * 2;
+            const h = m.hitbox?.height ?? w;
+            return {
+              id: m.id,
+              x: pos.x,
+              y: pos.y + h * ISO_VISUAL.HIT_CENTER_Y_OFFSET,
+              radius: Math.min(w, h) * ISO_VISUAL.HIT_RADIUS_SCALE,
+            };
+          })
+        : [],
+      terrains: getMap(mapId)?.features?.hasTerrainDamage
+        ? objTerrains
+            .filter((t) => !(t.requiredItemId && terrainClearedIds[t.id]))
+            .map((t) => ({ id: t.id, x: t.x, y: t.y, radius: t.radius }))
+        : [],
     }),
     [mapId, npcs, resources, terrainClearedIds, monsterPositions]
   );
@@ -183,28 +192,32 @@ export function useMapContent(
             <div
               key={lastResourceFeedback.key}
               className={`absolute pointer-events-none text-sm font-medium animate-float-text whitespace-nowrap ${colorClass}`}
-              style={{ left: node.x - 28, top: node.y - node.radius - 50 }}
+              style={{
+                left: node.x - FLOAT_TEXT_OFFSET.x,
+                top: node.y - node.radius - FLOAT_TEXT_OFFSET.y,
+              }}
             >
               {lastResourceFeedback.label}
             </div>
           );
         })()}
-        {mapId === 'MAP-field-001' && (
+        {getMap(mapId)?.features?.hasTerrainDamage &&
+          objTerrains.map((t) => {
+            const terrainInRange =
+              t.damagePerTick != null &&
+              Math.hypot(playerPosition.x - t.x, playerPosition.y - t.y) <= t.radius;
+            return (
+              <TerrainView
+                key={t.id}
+                terrain={t}
+                cleared={!!terrainClearedIds[t.id]}
+                highlightAsDropTarget={dropTargetTerrainId === t.id}
+                playerInRange={terrainInRange}
+              />
+            );
+          })}
+        {getMap(mapId)?.features?.hasMonsters && (
           <>
-            {objTerrains.map((t) => {
-              const terrainInRange =
-                t.damagePerTick != null &&
-                Math.hypot(playerPosition.x - t.x, playerPosition.y - t.y) <= t.radius;
-              return (
-                <TerrainView
-                  key={t.id}
-                  terrain={t}
-                  cleared={!!terrainClearedIds[t.id]}
-                  highlightAsDropTarget={dropTargetTerrainId === t.id}
-                  playerInRange={terrainInRange}
-                />
-              );
-            })}
             {objMonsters.map((m) => (
               <MonsterView
                 key={m.id}
@@ -224,7 +237,10 @@ export function useMapContent(
                 <div
                   key={lastStunFeedback.key}
                   className="absolute pointer-events-none text-sm font-bold animate-float-text whitespace-nowrap text-[var(--color-monster-attack)]"
-                  style={{ left: pos.x - 28, top: pos.y - m.radius - 28 }}
+                  style={{
+                    left: pos.x - FLOAT_TEXT_OFFSET.x,
+                    top: pos.y - m.radius - FLOAT_TEXT_OFFSET.x,
+                  }}
                 >
                   {lastStunFeedback.label}
                 </div>

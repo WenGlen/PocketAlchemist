@@ -9,5 +9,5 @@ export const debugConfig = {
    * 怪物的攻擊判定範圍（紫色虛線圓）。
    * 預設 false；開啟時請勿提交至正式分支。
    */
-  showHitbox: false,
+  showHitbox: true,
 };

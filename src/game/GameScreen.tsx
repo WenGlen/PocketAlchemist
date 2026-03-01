@@ -13,12 +13,11 @@ import { ITM_MAT_0001, getItem } from '../items/data/itemsTable';
 import type { SlotItem } from '../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../items/inventory/Backpack';
 import { QST_MAIN_001, getQuest, getCurrentStep, getBubbleDisplay, getCompleteMessage, getStartStep } from '../quests/data/questData';
-import { interactionConfig } from '../core/config/interactionConfig';
+import { interactionConfig } from './interactionConfig';
+import { PLACE_FEEDBACK_MS, QUEST_CELEBRATION_MS, CRAFT_CLEAR_DELAY_MS } from '../objects/objectsConstants';
+import { BACKPACK_CAPACITY } from '../items/inventoryConstants';
 import { getDisplayStats } from './screen/statsConfig';
 import { missionList } from '../quests/data/missionList';
-
-const PLACE_FEEDBACK_MS = 180;
-const QUEST_CELEBRATION_MS = 2200;
 
 /** 初始背包：玻璃瓶不可堆疊，每瓶一格 */
 function getInitialSlotsForMap(_mapId: string): { itemId: string; count: number }[] {
@@ -33,7 +32,7 @@ export function GameScreen() {
     [game.mapId, game.missionResetKey]
   );
   const backpack = useBackpack({
-    capacity: 10,
+    capacity: BACKPACK_CAPACITY,
     initialSlots,
     resetKey: game.missionResetKey,
   });
@@ -137,7 +136,7 @@ export function GameScreen() {
     const t = setTimeout(() => {
       setJustCrafted(false);
       setSynthesisSlots([null, null]);
-    }, 450);
+    }, CRAFT_CLEAR_DELAY_MS);
     return () => clearTimeout(t);
   }, [justCrafted]);
 
@@ -277,8 +276,7 @@ export function GameScreen() {
       const limit = getGatherLimitForNode(node, game.mapId);
       const remaining = limit != null ? game.getResourceRemaining(node.id) : undefined;
       if (limit != null && (remaining ?? limit) <= 0) return;
-      // 節點本身宣告 acquisitionType:'tap' 時直接允許；否則 herb 需由 config 啟用 tap 模式
-      if (node.kind === 'herb' && node.acquisitionType !== 'tap' && interactionConfig.materialPickupMode !== 'tap') return;
+      // 採集行為由節點 acquisitionType 決定，不再特判資源種類
       if (node.gatherEffectId) {
         game.recordResourceGather(node.id, {
           effectId: node.gatherEffectId,

@@ -1,12 +1,16 @@
 import { useState, useRef, useCallback } from 'react';
 import { getItem } from '../data/itemsTable';
 import type { SlotItem } from './useBackpack';
+import {
+  ITEM_BOX_SIZE_PX,
+  DRAG_THRESHOLD_PX,
+  DRAG_GHOST_Z_INDEX,
+} from '../inventoryConstants';
 
-const DRAG_THRESHOLD = 10;
 /**
  * 拖曳排查：設為 true 後打開 DevTools Console，拖道具時應看到
  * [Backpack] pointer down → threshold passed, creating ghost → ghost appended to body → ghost position (每 20 次 move 印一次) → pointer up
- * 若沒有 "creating ghost" 表示 document 沒收到 pointermove（可改為在 window 監聽試試）
+ * 若沒有 "creating ghost" 表示 document 沒收到 pointermove（可改為在 window 監聯試試）
  */
 const DRAG_DEBUG = false;
 
@@ -35,12 +39,6 @@ interface BackpackProps {
   onSlotPlaced?: (toIndex: number) => void;
 }
 
-/** 拖曳用 ghost：與道具小框同尺寸（欄位邊框內縮 1px 的小框） */
-const SLOT_BORDER_PX = 2;
-const ITEM_BOX_GAP_PX = 1;
-const SLOT_OUTER_PX = 64;
-const ITEM_BOX_SIZE_PX = SLOT_OUTER_PX - SLOT_BORDER_PX * 2 - ITEM_BOX_GAP_PX * 2;
-
 function createGhostEl(itemName: string, count: number): HTMLDivElement {
   const el = document.createElement('div');
   el.setAttribute('data-drag-ghost', 'true');
@@ -58,7 +56,7 @@ function createGhostEl(itemName: string, count: number): HTMLDivElement {
     `align-items:center`,
     `justify-content:center`,
     `pointer-events:none`,
-    `z-index:2147483647`,
+    `z-index:${DRAG_GHOST_Z_INDEX}`,
     `border:1pt solid var(--color-primary)`,
     `background:var(--color-panel)`,
     `color:var(--color-text-default)`,
@@ -136,7 +134,7 @@ export function Backpack({
       const dx = moveEvent.clientX - start.x;
       const dy = moveEvent.clientY - start.y;
       const dist = Math.hypot(dx, dy);
-      const overThreshold = dist >= DRAG_THRESHOLD;
+      const overThreshold = dist >= DRAG_THRESHOLD_PX;
       if (overThreshold) {
         if (!ghostCreated) {
           ghostCreated = true;

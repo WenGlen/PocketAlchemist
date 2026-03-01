@@ -1,4 +1,5 @@
 import { debugConfig } from '../debugForObjects';
+import { ISO_VISUAL, BUBBLE_SPACING } from '../objectsConstants';
 
 /**
  * ObjectView — 地圖非地形物件的統一視覺層。
@@ -97,8 +98,8 @@ export function ObjectView({
   containerZIndex,
   title,
 }: ObjectViewProps) {
-  const ringH = width * 0.3;
-  const rippleSize = width * 0.5;
+  const ringH = width * ISO_VISUAL.RING_HEIGHT_RATIO;
+  const rippleSize = width * ISO_VISUAL.RIPPLE_SIZE_RATIO;
 
   return (
     <div
@@ -177,23 +178,23 @@ export function ObjectView({
         </div>
       )}
 
-      {/* ── 名稱標籤（往下移半個泡泡高度 ≈ 12px）─── */}
+      {/* ── 名稱標籤（往下移半個泡泡高度）─── */}
       {displayName && (
         <span
           className="absolute left-1/2 -translate-x-1/2 text-[10px] font-medium text-[var(--color-text-default)] whitespace-nowrap pointer-events-none"
-          style={{ top: '100%', marginTop: '12px', filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.9))', zIndex: 2 }}
+          style={{ top: '100%', marginTop: BUBBLE_SPACING.marginTop, filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.9))', zIndex: 2 }}
         >
           {displayName}
         </span>
       )}
 
-      {/* ── 互動泡泡（物件上方，bottom: 100% + 4px 間距）─── */}
+      {/* ── 互動泡泡（物件上方）─── */}
       {bubbleText && (
         bubbleClickable ? (
           <button
             type="button"
             className="absolute rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap cursor-pointer hover:bg-[var(--color-panel-muted)] active:scale-[0.98] transition-all"
-            style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '4px', zIndex: 10 }}
+            style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: BUBBLE_SPACING.marginBottom, zIndex: 10 }}
             onClick={(e) => {
               e.stopPropagation();
               onBubbleClick?.();
@@ -204,7 +205,7 @@ export function ObjectView({
         ) : (
           <div
             className="absolute rounded px-2 py-1 bg-[var(--color-panel)] border border-[var(--color-primary)] text-[10px] text-[var(--color-text-default)] whitespace-nowrap pointer-events-none"
-            style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '4px', zIndex: 10 }}
+            style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: BUBBLE_SPACING.marginBottom, zIndex: 10 }}
             aria-hidden
           >
             📦 {bubbleText}

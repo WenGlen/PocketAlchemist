@@ -2,20 +2,17 @@ import { useState, useRef, useCallback } from 'react';
 import { getItem } from '../../data/itemsTable';
 import { matchRecipe } from './recipes';
 import type { SlotItem } from '../useBackpack';
-
-const SYNTH_SLOTS = 2;
-const DRAG_THRESHOLD = 10;
-
-/** 與道具小框同尺寸（欄位邊框內縮 1px） */
-const SLOT_BORDER_PX = 2;
-const ITEM_BOX_GAP_PX = 1;
-const SLOT_OUTER_PX = 64;
-const ITEM_BOX_SIZE_PX = SLOT_OUTER_PX - SLOT_BORDER_PX * 2 - ITEM_BOX_GAP_PX * 2;
+import {
+  ITEM_BOX_SIZE_PX,
+  DRAG_THRESHOLD_PX,
+  DRAG_GHOST_Z_INDEX,
+  SYNTHESIS_SLOTS,
+} from '../../inventoryConstants';
 
 function createGhostEl(itemName: string, count: number): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'fixed shadow-lg flex flex-col items-center justify-center text-xs font-medium pointer-events-none z-[9999] relative rounded-md';
-  el.style.cssText = `width:${ITEM_BOX_SIZE_PX}px;height:${ITEM_BOX_SIZE_PX}px;border:1pt solid var(--color-primary);background:var(--color-panel);color:var(--color-text-default);transform:translate(-50%,-50%);z-index:2147483647;`;
+  el.style.cssText = `width:${ITEM_BOX_SIZE_PX}px;height:${ITEM_BOX_SIZE_PX}px;border:1pt solid var(--color-primary);background:var(--color-panel);color:var(--color-text-default);transform:translate(-50%,-50%);z-index:${DRAG_GHOST_Z_INDEX};`;
   const span = document.createElement('span');
   span.className = 'leading-tight px-0.5 text-center break-words line-clamp-2';
   span.textContent = itemName;
@@ -85,7 +82,7 @@ export function SynthesisPanel({
     const onDocPointerMove = (moveEvent: PointerEvent) => {
       const dx = moveEvent.clientX - start.x;
       const dy = moveEvent.clientY - start.y;
-      if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+      if (Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX) {
         if (!ghostCreated) {
           ghostCreated = true;
           setDidDrag(true);
@@ -133,7 +130,7 @@ export function SynthesisPanel({
   return (
     <div className="flex flex-col gap-3 p-3 items-center">
       <div className="flex items-center gap-2 flex-wrap justify-center">
-        {Array.from({ length: SYNTH_SLOTS }, (_, i) => {
+        {Array.from({ length: SYNTHESIS_SLOTS }, (_, i) => {
           const slot = slots[i];
           const item = slot ? getItem(slot.itemId) : null;
           const canDrag = !!slot;

@@ -1,6 +1,7 @@
 import type { ResourceNodeDef } from '../data/objectsTable';
 import { ObjectView } from '../shared/ObjectView';
 import { debugConfig } from '../debugForObjects';
+import { ISO_VISUAL, OPACITY } from '../objectsConstants';
 
 interface ResourceNodeViewProps {
   node: ResourceNodeDef;
@@ -47,22 +48,22 @@ export function ResourceNodeView({
     ringBgColor = 'var(--color-panel-muted)';
     ringBorderColor = 'var(--color-resource-disabled)';
     ringShadow = undefined;
-    ringOpacity = 1;
+    ringOpacity = OPACITY.IN_RANGE;
   } else if (highlightAsDropTarget) {
     ringBgColor = 'var(--color-primary-25)';
     ringBorderColor = 'var(--color-object-focus)';
     ringShadow = '0 0 16px var(--color-primary-75)';
-    ringOpacity = 1;
+    ringOpacity = OPACITY.IN_RANGE;
   } else if (canInteract) {
     ringBgColor = baseColor;
     ringBorderColor = 'var(--color-object-focus)';
     ringShadow = '0 0 12px var(--color-primary-50)';
-    ringOpacity = 1;
+    ringOpacity = OPACITY.IN_RANGE;
   } else {
     ringBgColor = baseColor;
     ringBorderColor = 'var(--color-resource-normal)';
     ringShadow = undefined;
-    ringOpacity = 0.8;
+    ringOpacity = OPACITY.OUT_OF_RANGE;
   }
 
   const titleText = disabled
@@ -72,10 +73,10 @@ export function ResourceNodeView({
   const showBubble = inRange && !disabled && !!proximityBubbleText;
   const bubbleClickable = node.acquisitionType === 'tap';
 
-  // ── Debug：採集互動範圍圓（圓心下移 0.25h、半徑 = min(w,h)，與 hitTest 邏輯一致）
+  // ── Debug：採集互動範圍圓（圓心下移、半徑 = min(w,h)，與 hitTest 邏輯一致）
   const hitRadius = Math.min(w, h);
   const hitCX = node.x;
-  const hitCY = node.y + h * 0.25;
+  const hitCY = node.y + h * ISO_VISUAL.HIT_CENTER_Y_OFFSET;
 
   return (
     <>
@@ -123,7 +124,7 @@ export function ResourceNodeView({
         ringBorderColor={ringBorderColor}
         ringShadow={ringShadow}
         ringOpacity={ringOpacity}
-        opacity={disabled ? 0.65 : undefined}
+        opacity={disabled ? OPACITY.DISABLED : undefined}
         playShake={playShake}
         shakeKey={shakeKey}
         playRipple={playRipple}
