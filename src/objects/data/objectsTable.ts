@@ -131,7 +131,7 @@ export const OBJ_NPC_002: NpcDef = {
   emoji: '🧑‍⚕️',
   subEmoji: '🩺',
   positionByMap: {
-    'MAP-field-002': { x: 1050, y: 680 },
+    'MAP-field-002': { x: 350, y: 480 },
   },
 };
 

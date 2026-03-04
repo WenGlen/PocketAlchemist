@@ -22,5 +22,5 @@ export const PROXIMITY_TICK_MS = 100;  // Proximity 檢測節流間隔（ms）
 
 // ========== 初始設定 ==========
 
-export const DEFAULT_MAP_ID = 'MAP-field-001';  // 預設初始地圖 ID
-export const DEFAULT_QUEST_ID = 'QST-main-001';  // 預設初始任務 ID
+export const DEFAULT_MAP_ID = 'MAP-field-002';  // 預設初始地圖 ID（暫時跳過地圖一）
+export const DEFAULT_QUEST_ID = 'QST-main-003';  // 預設初始任務 ID（地圖二起始任務）

@@ -15,6 +15,7 @@ import {
   getGatherLimitForNode,
 } from '../../objects/data/objectsTable';
 import { getMap } from '../../maps/data/mapsTable';
+import type { QuestPhase } from '../../quests/data/questData';
 import {
   ISO_VISUAL,
   DEFAULT_ENTITY_RADIUS,
@@ -58,10 +59,14 @@ export interface MapContentState {
   monsterStunUntil: number;
   lastStunFeedback: { monsterId: string; label: string; key: number } | null;
   acceptFromEntityId: string | null;
-  questPhase: 'none' | 'accepted' | 'completed';
+  questPhase: QuestPhase;
   bubbleEntityId: string | null;
   bubbleItemId: string | null;
   bubbleLabel: string | null;
+  // MVP-02-4：簡化版任務系統 - 只有指定 NPC 可互動
+  interactableNpcId: string | null;
+  // NPC 臨時移動：任務進行期間覆蓋 NPC 位置
+  npcPositionOverrides?: Record<string, { x: number; y: number }> | null;
 }
 
 export type MapEntityType = 'npc' | 'resource' | 'monster' | 'terrain';
@@ -95,13 +100,19 @@ export function useMapContent(
     bubbleEntityId,
     bubbleItemId,
     bubbleLabel,
+    interactableNpcId,
+    npcPositionOverrides,
   } = state;
 
   const rawNpcs = npcsByMap[mapId] ?? [objectTable['OBJ-npc-001']!];
-  // 依 positionByMap 覆蓋 NPC 座標，確保跨地圖複用時顯示在正確位置
+  // 依 npcPositionOverrides（任務覆蓋）或 positionByMap（地圖預設）覆蓋 NPC 座標
   const npcs = rawNpcs.map((n) => {
-    const override = n.positionByMap?.[mapId];
-    return override ? { ...n, x: override.x, y: override.y } : n;
+    // 任務覆蓋優先
+    const questOverride = npcPositionOverrides?.[n.id];
+    if (questOverride) return { ...n, x: questOverride.x, y: questOverride.y };
+    // 地圖預設覆蓋
+    const mapOverride = n.positionByMap?.[mapId];
+    return mapOverride ? { ...n, x: mapOverride.x, y: mapOverride.y } : n;
   });
   const resources = (resourceNodesByMap[mapId] ?? resourceNodes).filter((n) => !n.hidden);
 
@@ -136,7 +147,7 @@ export function useMapContent(
             .map((t) => ({ id: t.id, x: t.x, y: t.y, radius: t.radius }))
         : [],
     }),
-    [mapId, npcs, resources, terrainClearedIds, monsterPositions]
+    [mapId, npcs, resources, terrainClearedIds, monsterPositions, npcPositionOverrides]
   );
 
   const content = useMemo(() => {
@@ -149,17 +160,18 @@ export function useMapContent(
       <>
         {npcs.map((npc) => {
           const inRange = isNpcInRange(npc);
-          const canInteract =
-            questPhase !== 'completed' &&
-            (!acceptFromEntityId || questPhase !== 'none' || npc.id === acceptFromEntityId);
+          // MVP-02-4 簡化版：只有 interactableNpcId 的 NPC 可互動
+          const canInteract = npc.id === interactableNpcId;
+          // 泡泡只顯示在可互動的 NPC 上
+          const showBubble = canInteract && (bubbleEntityId === npc.id || interactableNpcId === npc.id);
           return (
             <NpcView
               key={npc.id}
               npc={npc}
               inRange={inRange && canInteract}
-              demandItemId={npc.id === bubbleEntityId ? bubbleItemId : null}
-              demandLabel={npc.id === bubbleEntityId ? bubbleLabel : null}
-              onBubbleClick={() => onTap('npc', npc.id)}
+              demandItemId={showBubble && bubbleItemId ? bubbleItemId : null}
+              demandLabel={showBubble ? bubbleLabel : null}
+              onBubbleClick={canInteract ? () => onTap('npc', npc.id) : undefined}
             />
           );
         })}
@@ -276,6 +288,7 @@ export function useMapContent(
     bubbleEntityId,
     bubbleItemId,
     bubbleLabel,
+    interactableNpcId,
     onTap,
   ]);
 

@@ -19,7 +19,6 @@ import {
   DEFAULT_MAP_WIDTH,
   DEFAULT_MAP_HEIGHT,
   DEFAULT_MAP_ID,
-  DEFAULT_QUEST_ID,
 } from '../maps/mapConstants';
 import { DEFAULT_ENTITY_RADIUS, FEEDBACK_CLEAR_MS, STUN_FEEDBACK_CLEAR_MS } from '../objects/objectsConstants';
 import { getMap } from '../maps/data/mapsTable';
@@ -100,7 +99,7 @@ export function useGameState() {
   const [moveDirection, setMoveDirection] = useState({ x: 0, y: 0 });
   const [dialogueOpen, setDialogueOpen] = useState(false);
   const [dialogueNpcId, setDialogueNpcId] = useState<string | null>(null);
-  const [questPhase, setQuestPhase] = useState<'none' | 'accepted' | 'completed'>('none');  // 主線任務：none | accepted | completed
+  const [questPhase, setQuestPhase] = useState<'idle' | 'accepted' | 'completed'>('idle');  // 主線任務：idle（無任務）| accepted | completed
   const [questStepIndex, setQuestStepIndex] = useState(0);  // 當前步驟索引（0-based）
   const [resourceRemaining, setResourceRemaining] = useState<Record<string, number>>(() =>
     getInitialResourceRemainingForMap(DEFAULT_MAP_ID)
@@ -115,7 +114,7 @@ export function useGameState() {
   gameOutcomeRef.current = gameOutcome;
   const [selectedPotionItemId, setSelectedPotionItemId] = useState<string | null>(null);  // tap 使用地形時選中的藥劑
   const [terrainClearedIds, setTerrainClearedIds] = useState<Record<string, boolean>>({});  // 已清除的地形 id
-  const [selectedQuestId, setSelectedQuestId] = useState(DEFAULT_QUEST_ID);  // 當前選中的任務 ID
+  const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);  // 當前選中的任務 ID（null = 無任務，idle 狀態）
   const [missionResetKey, setMissionResetKey] = useState(0);  // 選單切換時遞增，供背包等重置
   const [monsterLastHitTimes, setMonsterLastHitTimes] = useState<Record<string, number>>({});  // 怪物攻擊時間戳（用於閃光動畫）
   const [monsterCooldownResetTimes, setMonsterCooldownResetTimes] = useState<Record<string, number>>({});  // 冷卻圈起始時間戳
@@ -260,16 +259,57 @@ export function useGameState() {
     });
   }, []);
 
-  // ── 任務選擇 ─────────────────────────────────────────────────────
+  // ── 地圖與任務選擇（MVP-02-4 重構）─────────────────────────────────
 
-  // 選單：選擇任務（切換或重新開始）；傳入該任務的 mapId 與 questId
+  // 進入地圖：重置位置、資源、怪物、地形，但保留背包與 HP
+  const enterMap = useCallback((nextMapId: string) => {
+    setPlayerPosition(getSpawnForMap(nextMapId));
+    setMapId(nextMapId);
+    setSelectedQuestId(null);
+    setDialogueOpen(false);
+    setDialogueNpcId(null);
+    setQuestPhase('idle');
+    setQuestStepIndex(0);
+    // 保留 HP，不重置
+    setGameOutcome('playing');
+    setMonsterStunUntil(0);
+    monsterStunUntilRef.current = 0;
+    setSelectedPotionItemId(null);
+    setTerrainClearedIds({});
+    setResourceRemaining(getInitialResourceRemainingForMap(nextMapId));
+    setMonsterPositions(Object.fromEntries(objMonsters.map((m) => [m.id, { x: m.x, y: m.y }])));
+    monsterPatrolDirectionRef.current = Object.fromEntries(
+      objMonsters.filter((m) => m.patrol).map((m) => [m.id, 1])
+    );
+    lastTerrainDamageRef.current = {};
+    monsterLastAttackRef.current = Object.fromEntries(objMonsters.map((m) => [m.id, 0]));
+    setMonsterLastHitTimes({});
+    setMonsterCooldownResetTimes({});
+    setMissionResetKey((k) => k + 1);
+  }, []);
+
+  // 承接任務：只設定任務狀態，不重置其他
+  const startQuest = useCallback((questId: string) => {
+    setSelectedQuestId(questId);
+    setQuestPhase('accepted');
+    setQuestStepIndex(1);  // 跳過 start 步驟，從第一個實際步驟開始
+  }, []);
+
+  // 清除當前任務：任務完成後呼叫，回到 idle 狀態
+  const clearCurrentQuest = useCallback(() => {
+    setSelectedQuestId(null);
+    setQuestPhase('idle');
+    setQuestStepIndex(0);
+  }, []);
+
+  // 選單：選擇任務（開發用，會重置一切包含背包/HP）
   const selectMission = useCallback((nextMapId: string, nextQuestId: string) => {
     setPlayerPosition(getSpawnForMap(nextMapId));
     setMapId(nextMapId);
     setSelectedQuestId(nextQuestId);
     setDialogueOpen(false);
     setDialogueNpcId(null);
-    setQuestPhase('none');
+    setQuestPhase('idle');
     setQuestStepIndex(0);
     setHp(HP_MAX);
     hpRef.current = HP_MAX;
@@ -523,7 +563,11 @@ export function useGameState() {
     monsterPositions,
     monsterLastHitTimes,
     monsterCooldownResetTimes,
-    selectMission,
+    // MVP-02-4：連續任務系統
+    enterMap,
+    startQuest,
+    clearCurrentQuest,
+    selectMission,  // 保留給開發測試用（會重置一切）
     selectedQuestId,
     missionResetKey,
     completedQuestIds,

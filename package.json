@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "npm run build && gh-pages -d dist -b",
+    "deploy1": "npm run build && gh-pages -d dist -b gh-pages",
+    "deploy2": "npm run build && gh-pages -d dist -b gh-pages2"
   },
   "dependencies": {
     "react": "^19.2.0",

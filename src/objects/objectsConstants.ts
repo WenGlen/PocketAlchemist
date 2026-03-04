@@ -9,7 +9,7 @@
 
 export const debugConfig = {
 
-  showHitbox: false,
+  showHitbox: true,
 
 };
 
