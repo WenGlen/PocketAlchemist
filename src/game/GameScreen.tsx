@@ -18,10 +18,11 @@ import { getObject, getResourceNode, getResourceNodesRequiringItem, getGatherLim
 import { ITM_MAT_0001, getItem } from '../items/data/itemsTable';
 import type { SlotItem } from '../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../items/inventory/Backpack';
-import { getQuest, getCurrentStep, getBubbleDisplay, getCompleteMessage, getStartStep, getNextQuest, getInteractableNpcId } from '../quests/data/questData';
+import { getStartStep } from '../quests/data/questData';
 import type { AcceptMode } from '../quests/data/questData';
+import { useQuestState } from '../quests/useQuestState';
 import { interactionConfig } from './interactionConfig';
-import { PLACE_FEEDBACK_MS, QUEST_CELEBRATION_MS, CRAFT_CLEAR_DELAY_MS } from '../objects/objectsConstants';
+import { PLACE_FEEDBACK_MS, CRAFT_CLEAR_DELAY_MS } from '../objects/objectsConstants';
 import { BACKPACK_CAPACITY } from '../items/inventoryConstants';
 import { getDisplayStats } from './screen/statsConfig';
 import { missionList } from '../quests/data/missionList';
@@ -52,12 +53,9 @@ export function GameScreen() {
   const [dropTarget, setDropTarget] = useState<DropTargetFromBackpack>(null);
   const [lastPlacedSlotIndex, setLastPlacedSlotIndex] = useState<number | null>(null);
   const [justCrafted, setJustCrafted] = useState(false);
-  const [showQuestCompleteCelebration, setShowQuestCompleteCelebration] = useState(false);
-  const [completedQuestInfo, setCompletedQuestInfo] = useState<{ name: string } | null>(null);
-  const [chainedPendingQuestId, setChainedPendingQuestId] = useState<string | null>(null);  // chained 模式待承接的任務 ID
-  const [seenForcedStartDialogue, setSeenForcedStartDialogue] = useState<Set<string>>(new Set());  // 已看過 forced 模式 start 對話的任務 ID
-  const [seenIntroDialogueSteps, setSeenIntroDialogueSteps] = useState<Set<number>>(new Set());  // 已看過 introDialogue 的 stepIndex
-  const [introDialogueIndex, setIntroDialogueIndex] = useState<number>(-1);  // 當前 introDialogue 句子索引，-1 表示無
+
+  // 任務狀態管理（從 useQuestState hook 取得）
+  const questState = useQuestState(game);
   const synthesisSlotsRef = useRef(synthesisSlots);
   synthesisSlotsRef.current = synthesisSlots;
   const backpackRef = useRef(backpack);
@@ -73,13 +71,8 @@ export function GameScreen() {
     setSynthesisExpanded(false);
     setDeliveryMessage(null);
     setDropTarget(null);
-    setShowQuestCompleteCelebration(false);
-    setCompletedQuestInfo(null);
-    setChainedPendingQuestId(null);
-    setSeenForcedStartDialogue(new Set());
-    setSeenIntroDialogueSteps(new Set());
-    setIntroDialogueIndex(-1);
-  }, [game.missionResetKey]);
+    questState.resetQuestState();
+  }, [game.missionResetKey, questState.resetQuestState]);
 
   // 跟 NPC 對話或移動時強制收合合成視窗，並把合成欄位內道具歸還背包（不依賴 backpack 避免無限迴圈）
   useEffect(() => {
@@ -94,23 +87,8 @@ export function GameScreen() {
 
   const npc = game.dialogueNpcId ? getObject(game.dialogueNpcId) : null;
 
-  // MVP-02-4 簡化版：自動追蹤下一個任務
-  const nextQuest = useMemo(
-    () => getNextQuest(game.mapId, game.completedQuestIds),
-    [game.mapId, game.completedQuestIds]
-  );
-  // 當前任務：accepted 時用 selectedQuestId，idle 時用 nextQuest
-  const quest = game.questPhase === 'accepted' && game.selectedQuestId
-    ? (getQuest(game.selectedQuestId) ?? null)
-    : nextQuest;
-  const currentStep = getCurrentStep(quest, game.questStepIndex);
-  const bubble = getBubbleDisplay(quest, game.questPhase, game.questStepIndex, currentStep);
-
-  // 計算當前可互動的 NPC
-  const interactableNpcId = useMemo(
-    () => getInteractableNpcId(quest, game.questPhase, game.questStepIndex),
-    [quest, game.questPhase, game.questStepIndex]
-  );
+  // 從 questState 解構常用值
+  const { quest, currentStep, nextQuest, interactableNpcId, bubble } = questState;
 
   // 依資源點定義統一判斷：需道具互動的節點（如湖邊、水源）用 interactionRange，有對應道具即高亮
   const range = interactionConfig.interactionRange;
@@ -194,46 +172,6 @@ export function GameScreen() {
     const t = setTimeout(() => setLastPlacedSlotIndex(null), PLACE_FEEDBACK_MS);
     return () => clearTimeout(t);
   }, [lastPlacedSlotIndex]);
-
-  // 關閉任務完成彈窗：根據下一個任務的 acceptMode 決定後續行為
-  const handleCloseQuestCelebration = useCallback(() => {
-    setShowQuestCompleteCelebration(false);
-    setCompletedQuestInfo(null);
-
-    // 取得下一個任務（用最新的 completedQuestIds）
-    const next = getNextQuest(game.mapId, game.completedQuestIds);
-    if (!next) {
-      game.clearCurrentQuest();
-      return;
-    }
-
-    const mode: AcceptMode = next.acceptMode ?? 'auto';
-    const startNpcId = getStartStep(next)?.entityId;
-
-    if (mode === 'forced') {
-      // forced：直接承接任務，不打開對話，讓玩家自由走動
-      // 第一次與任務 NPC 對話時會顯示 start 的 acceptText
-      game.startQuest(next.id);
-    } else if (mode === 'chained') {
-      // chained：先回到 idle，開啟對話窗顯示 acceptText，關閉對話時自動承接
-      game.clearCurrentQuest();
-      setChainedPendingQuestId(next.id);  // 記錄待承接的任務
-      if (startNpcId) {
-        game.openDialogue(startNpcId);
-      }
-    } else {
-      // auto/manual：回到 idle 狀態
-      game.clearCurrentQuest();
-    }
-  }, [game, game.mapId, game.completedQuestIds]);
-
-  useEffect(() => {
-    if (!showQuestCompleteCelebration) return;
-    const t = setTimeout(() => {
-      handleCloseQuestCelebration();
-    }, QUEST_CELEBRATION_MS);
-    return () => clearTimeout(t);
-  }, [showQuestCompleteCelebration, handleCloseQuestCelebration]);
 
   const handleDragMoveFromBackpack = useCallback((clientX: number, clientY: number) => {
     const el = document.elementFromPoint(clientX, clientY);
@@ -394,86 +332,14 @@ export function GameScreen() {
     game.advanceQuestStep();
   }, [game, quest, currentStep, game.dialogueNpcId, backpack]);
 
-  // manual 模式：對話窗內點「接受任務」按鈕承接任務
-  const handleAcceptQuest = useCallback(() => {
-    if (game.questPhase !== 'idle' || !nextQuest) return;
-    game.startQuest(nextQuest.id);
-  }, [game, nextQuest]);
-
-  // 判斷是否為 manual 承接模式
-  const isManualAcceptMode = game.questPhase === 'idle' && nextQuest?.acceptMode === 'manual';
-
-  // 判斷是否為 chained 待承接模式（idle 狀態 + 有 pendingQuestId）
-  const isChainedPendingMode = game.questPhase === 'idle' && chainedPendingQuestId !== null;
-
-  // forced 模式：判斷是否應顯示 start 對話（第一次與任務 NPC 對話時）
-  const showForcedStartDialogue = useMemo(() => {
-    if (game.questPhase !== 'accepted' || !quest || !game.selectedQuestId) return false;
-    if (quest.acceptMode !== 'forced') return false;
-    if (seenForcedStartDialogue.has(game.selectedQuestId)) return false;
-    // 只有與任務發放 NPC 對話時才顯示
-    const startNpcId = getStartStep(quest)?.entityId;
-    return game.dialogueNpcId === startNpcId;
-  }, [game.questPhase, quest, game.selectedQuestId, seenForcedStartDialogue, game.dialogueNpcId]);
-
-  // ── introDialogue 銜接對話 ────────────────────────────────────
-  // 取得當前步驟的 introDialogue（若有且尚未看過）
-  const currentIntroDialogue = useMemo(() => {
-    if (game.questPhase !== 'accepted' || !currentStep) return null;
-    if (!('introDialogue' in currentStep) || !currentStep.introDialogue?.length) return null;
-    if (seenIntroDialogueSteps.has(game.questStepIndex)) return null;
-    return currentStep.introDialogue;
-  }, [game.questPhase, currentStep, game.questStepIndex, seenIntroDialogueSteps]);
-
-  // 進入新步驟時，若該步驟有 introDialogue，自動啟動逐句對話
-  useEffect(() => {
-    if (currentIntroDialogue && introDialogueIndex < 0) {
-      setIntroDialogueIndex(0);
-    }
-  }, [currentIntroDialogue, introDialogueIndex]);
-
-  // 推進 introDialogue 到下一句；若已是最後一句則標記為已看過
-  const handleAdvanceIntroDialogue = useCallback(() => {
-    if (!currentIntroDialogue) return;
-    const nextIndex = introDialogueIndex + 1;
-    if (nextIndex >= currentIntroDialogue.length) {
-      // 對話結束，標記為已看過
-      setSeenIntroDialogueSteps((prev) => new Set(prev).add(game.questStepIndex));
-      setIntroDialogueIndex(-1);
-    } else {
-      setIntroDialogueIndex(nextIndex);
-    }
-  }, [currentIntroDialogue, introDialogueIndex, game.questStepIndex]);
-
-  // 關閉對話窗：處理 complete 步驟、chained 模式、forced 模式等
+  // 關閉對話窗：委託 questState 處理任務邏輯，再關閉對話
   const handleCloseDialogue = useCallback(() => {
-    // forced 模式：第一次點擊只是標記已看過，不關閉對話（讓玩家看到下一個步驟內容）
-    if (game.questPhase === 'accepted' && quest?.acceptMode === 'forced' && game.selectedQuestId) {
-      const startNpcId = getStartStep(quest)?.entityId;
-      if (game.dialogueNpcId === startNpcId && !seenForcedStartDialogue.has(game.selectedQuestId)) {
-        setSeenForcedStartDialogue(prev => new Set(prev).add(game.selectedQuestId!));
-        return;  // 不關閉對話，讓 UI 重新渲染顯示下一個步驟內容
-      }
-    }
-
-    // complete 步驟：關閉對話時才真正完成任務
-    if (game.questPhase === 'accepted' && currentStep?.type === 'complete' && quest && game.selectedQuestId) {
-      setCompletedQuestInfo({ name: quest.name });
-      game.setQuestPhase('completed');
-      game.recordQuestCompletion(game.selectedQuestId);
-      playSound('success');
-      setShowQuestCompleteCelebration(true);
-    }
+    const shouldClose = questState.handleQuestDialogueClose();
+    if (!shouldClose) return;  // forced 模式第一次點擊不關閉
 
     game.closeDialogue();
     setDeliveryMessage(null);
-
-    // chained 模式：關閉對話時自動承接任務
-    if (chainedPendingQuestId) {
-      game.startQuest(chainedPendingQuestId);
-      setChainedPendingQuestId(null);
-    }
-  }, [game, chainedPendingQuestId, currentStep?.type, quest, game.questPhase, game.selectedQuestId, seenForcedStartDialogue]);
+  }, [game, questState.handleQuestDialogueClose]);
 
   const monsterStunned = game.monsterStunUntil > Date.now();
 
@@ -486,14 +352,6 @@ export function GameScreen() {
     },
     [handleTapNpc, handleTapResource, handleTapMonster, handleTapTerrain]
   );
-
-  // 泡泡顯示：idle 時顯示任務名稱，accepted 時顯示步驟需求
-  const displayBubbleLabel = useMemo(() => {
-    if (game.questPhase === 'idle' && nextQuest) {
-      return `📜 ${nextQuest.name}`;
-    }
-    return bubble?.label ?? null;
-  }, [game.questPhase, nextQuest, bubble?.label]);
 
   const { hitTestTargets, content } = useMapContent(
     {
@@ -515,7 +373,7 @@ export function GameScreen() {
       questPhase: game.questPhase,
       bubbleEntityId: interactableNpcId,
       bubbleItemId: bubble?.itemId ?? null,
-      bubbleLabel: displayBubbleLabel,
+      bubbleLabel: questState.displayBubbleLabel,
       interactableNpcId,
       npcPositionOverrides: game.questPhase === 'accepted' ? quest?.npcPositionOverrides : null,
     },
@@ -587,16 +445,16 @@ export function GameScreen() {
               quest={quest}
               currentStep={currentStep}
               dialogueNpcId={game.dialogueNpcId}
-              completeMessage={getCompleteMessage(quest) ?? null}
+              completeMessage={questState.completeMessage}
               onReceiveFromStep={handleReceiveFromStep}
               deliveryZoneHighlight={dropTarget?.type === 'delivery'}
-              onAcceptQuest={handleAcceptQuest}
-              isManualAcceptMode={isManualAcceptMode}
-              isChainedPendingMode={isChainedPendingMode}
-              showForcedStartDialogue={showForcedStartDialogue}
-              introDialogue={currentIntroDialogue}
-              introDialogueIndex={introDialogueIndex}
-              onAdvanceIntroDialogue={handleAdvanceIntroDialogue}
+              onAcceptQuest={questState.handleAcceptQuest}
+              isManualAcceptMode={questState.isManualAcceptMode}
+              isChainedPendingMode={questState.isChainedPendingMode}
+              showForcedStartDialogue={questState.showForcedStartDialogue}
+              introDialogue={questState.currentIntroDialogue}
+              introDialogueIndex={questState.introDialogueIndex}
+              onAdvanceIntroDialogue={questState.handleAdvanceIntroDialogue}
               deliveryErrorMessage={deliveryMessage}
             />
           )}
@@ -632,17 +490,17 @@ export function GameScreen() {
       </div>
 
       {/* MVP-02-4：任務完成彈窗，關閉後回到 idle 狀態繼續探索 */}
-      {showQuestCompleteCelebration && completedQuestInfo && (
+      {questState.showQuestCompleteCelebration && questState.completedQuestInfo && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 cursor-pointer"
           role="button"
           tabIndex={0}
           aria-label="關閉任務完成"
-          onClick={handleCloseQuestCelebration}
+          onClick={questState.handleCloseQuestCelebration}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              handleCloseQuestCelebration();
+              questState.handleCloseQuestCelebration();
             }
           }}
         >
@@ -654,14 +512,14 @@ export function GameScreen() {
           >
             <button
               type="button"
-              onClick={handleCloseQuestCelebration}
+              onClick={questState.handleCloseQuestCelebration}
               className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded text-[var(--color-text-muted)] hover:bg-[var(--color-panel-muted)] hover:text-[var(--color-text-default)] text-lg leading-none transition-colors"
               aria-label="關閉"
             >
               ×
             </button>
             <span className="text-xl font-bold text-[var(--color-primary)]">任務完成</span>
-            <span className="text-sm text-[var(--color-text-default)]">{completedQuestInfo.name}</span>
+            <span className="text-sm text-[var(--color-text-default)]">{questState.completedQuestInfo.name}</span>
             <span className="text-xs text-[var(--color-text-muted)]">點擊任意處繼續探索</span>
           </div>
         </div>

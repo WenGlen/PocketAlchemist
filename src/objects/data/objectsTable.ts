@@ -158,7 +158,8 @@ export const OBJ_NPC_004: NpcDef = {
   interactive: true,
   displayName: '旅行商人',
   dialogueKey: 'npc_field2_merchant',
-  emoji: '🧳',
+  emoji: '🧑‍💼',
+  subEmoji: '🧳',
 };
 
 export const objectTable: Record<string, NpcDef> = {
