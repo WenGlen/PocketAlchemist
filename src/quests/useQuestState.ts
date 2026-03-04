@@ -96,23 +96,29 @@ export function useQuestState(game: GameStateForQuest): UseQuestStateReturn {
     return nextQuest;
   }, [game.questPhase, game.selectedQuestId, nextQuest]);
 
-  const currentStep = useMemo(
+  const currentStepRaw = useMemo(
     () => getCurrentStep(quest, game.questStepIndex),
     [quest, game.questStepIndex]
   );
+  const currentStep = currentStepRaw ?? null;
 
-  const bubble = useMemo(
-    () => getBubbleDisplay(quest, game.questPhase, game.questStepIndex, currentStep),
-    [quest, game.questPhase, game.questStepIndex, currentStep]
-  );
+  const bubble = useMemo(() => {
+    const raw = getBubbleDisplay(quest, game.questPhase, game.questStepIndex, currentStepRaw);
+    if (!raw) return null;
+    return {
+      entityId: raw.entityId,
+      itemId: raw.itemId ?? null,
+      label: raw.label ?? null,
+    };
+  }, [quest, game.questPhase, game.questStepIndex, currentStepRaw]);
 
   const interactableNpcId = useMemo(
-    () => getInteractableNpcId(quest, game.questPhase, game.questStepIndex),
+    () => getInteractableNpcId(quest, game.questPhase, game.questStepIndex) ?? null,
     [quest, game.questPhase, game.questStepIndex]
   );
 
   const completeMessage = useMemo(
-    () => getCompleteMessage(quest),
+    () => getCompleteMessage(quest) ?? null,
     [quest]
   );
 

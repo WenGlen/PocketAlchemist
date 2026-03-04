@@ -1,2 +1,2 @@
 // 應用程式版本號
-export const APP_VERSION = 'MVP-02-5.05';
+export const APP_VERSION = 'MVP-02-6.01';
