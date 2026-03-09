@@ -14,6 +14,9 @@ import {
   getStartStep,
   getNextQuest,
   getInteractableNpcId,
+  getStepEntityId,
+  getStepByIndex,
+  parseStepCompleteAction,
 } from './data/questData';
 import type { AcceptMode, QuestDef, QuestStep } from './data/questData';
 import { QUEST_CELEBRATION_MS } from '../objects/objectsConstants';
@@ -34,6 +37,7 @@ interface GameStateForQuest {
   closeDialogue: () => void;
   setQuestPhase: (phase: 'idle' | 'accepted' | 'completed') => void;
   recordQuestCompletion: (questId: string) => void;
+  advanceQuestStep: () => void;
 }
 
 export interface UseQuestStateReturn {
@@ -52,6 +56,7 @@ export interface UseQuestStateReturn {
   // 承接模式
   isManualAcceptMode: boolean;
   isChainedPendingMode: boolean;
+  isAutoAcceptMode: boolean;
   showForcedStartDialogue: boolean;
 
   // introDialogue 對話狀態
@@ -65,8 +70,15 @@ export interface UseQuestStateReturn {
   handleCloseQuestCelebration: () => void;
   handleAdvanceIntroDialogue: () => void;
   handleAcceptQuest: () => void;
-  /** 處理關閉對話的任務邏輯，回傳 true 表示對話應該關閉 */
-  handleQuestDialogueClose: () => boolean;
+  /**
+   * 處理關閉對話的任務邏輯
+   * @returns shouldClose: 對話是否應該關閉, hideNpc/showNpc: NPC 狀態變化
+   */
+  handleQuestDialogueClose: () => {
+    shouldClose: boolean;
+    hideNpc?: string[];
+    showNpc?: string[];
+  };
 
   // 重置函數（供 GameScreen 的 useEffect 呼叫）
   resetQuestState: () => void;
@@ -147,6 +159,19 @@ export function useQuestState(game: GameStateForQuest): UseQuestStateReturn {
     return bubble?.label ?? null;
   }, [game.questPhase, nextQuest, bubble?.label]);
 
+  // 判斷是否為 auto 承接模式（idle + auto 模式 + 與任務發放 NPC 對話）
+  const isAutoAcceptMode = useMemo(() => {
+    if (game.questPhase !== 'idle') return false;
+    if (!nextQuest) return false;
+    if (!game.dialogueNpcId) return false;
+
+    const mode = nextQuest.acceptMode ?? 'auto';
+    if (mode !== 'auto') return false;
+
+    const startNpcId = getStartStep(nextQuest)?.entityId;
+    return game.dialogueNpcId === startNpcId;
+  }, [game.questPhase, nextQuest, game.dialogueNpcId]);
+
   // ── 副作用 ───────────────────────────────────────────────────
 
   // 進入新步驟時，若該步驟有 introDialogue，自動啟動逐句對話
@@ -211,15 +236,52 @@ export function useQuestState(game: GameStateForQuest): UseQuestStateReturn {
 
   /**
    * 處理關閉對話的任務邏輯
-   * @returns true 表示對話應該關閉，false 表示不應關閉（如 forced 模式第一次點擊）
+   * @returns shouldClose: 對話是否應該關閉, hideNpc/showNpc: NPC 狀態變化
    */
-  const handleQuestDialogueClose = useCallback((): boolean => {
+  const handleQuestDialogueClose = useCallback((): {
+    shouldClose: boolean;
+    hideNpc?: string[];
+    showNpc?: string[];
+  } => {
+    const result: { shouldClose: boolean; hideNpc?: string[]; showNpc?: string[] } = { shouldClose: true };
+
+    // 輔助函數：解析 onStepComplete 並應用動作
+    const applyStepCompleteAction = (step: QuestStep | null | undefined, nextStepEntityId: string | undefined) => {
+      const action = parseStepCompleteAction(step);
+      // 收集 hideNpc/showNpc
+      if (action.hideNpc) {
+        result.hideNpc = Array.isArray(action.hideNpc) ? action.hideNpc : [action.hideNpc];
+      }
+      if (action.showNpc) {
+        result.showNpc = Array.isArray(action.showNpc) ? action.showNpc : [action.showNpc];
+      }
+      // 判斷對話框行為
+      if (action.dialogue === 'continue') {
+        // 下一步與當前 NPC 相同，或是 complete 類型（無 entityId），則不關閉對話
+        if (nextStepEntityId === game.dialogueNpcId || !nextStepEntityId) {
+          result.shouldClose = false;
+        }
+      }
+    };
+
     // forced 模式：第一次點擊只是標記已看過，不關閉對話
     if (game.questPhase === 'accepted' && quest?.acceptMode === 'forced' && game.selectedQuestId) {
       const startNpcId = getStartStep(quest)?.entityId;
       if (game.dialogueNpcId === startNpcId && !seenForcedStartDialogue.has(game.selectedQuestId)) {
         setSeenForcedStartDialogue(prev => new Set(prev).add(game.selectedQuestId!));
-        return false;
+        return { shouldClose: false };
+      }
+    }
+
+    // interact_with 步驟：關閉對話時完成此步驟（推進到下一步）
+    if (game.questPhase === 'accepted' && currentStep?.type === 'interact_with' && currentStep.entityId === game.dialogueNpcId) {
+      // 確認 introDialogue 已看完（或沒有 introDialogue）
+      const hasIntro = currentStep.introDialogue && currentStep.introDialogue.length > 0;
+      const introFinished = !hasIntro || seenIntroDialogueSteps.has(game.questStepIndex);
+      if (introFinished) {
+        const nextStep = getStepByIndex(quest, game.questStepIndex + 1);
+        applyStepCompleteAction(currentStep, getStepEntityId(nextStep));
+        game.advanceQuestStep();
       }
     }
 
@@ -234,12 +296,30 @@ export function useQuestState(game: GameStateForQuest): UseQuestStateReturn {
 
     // chained 模式：關閉對話時自動承接任務
     if (chainedPendingQuestId) {
+      const chainedQuest = getQuest(chainedPendingQuestId);
+      const startStep = getStartStep(chainedQuest);
       game.startQuest(chainedPendingQuestId);
       setChainedPendingQuestId(null);
+      const nextStep = getStepByIndex(chainedQuest, 1);
+      applyStepCompleteAction(startStep, getStepEntityId(nextStep));
     }
 
-    return true;
-  }, [game, chainedPendingQuestId, currentStep?.type, quest, game.questPhase, game.selectedQuestId, seenForcedStartDialogue]);
+    // auto 模式：關閉對話時自動承接任務
+    if (game.questPhase === 'idle' && nextQuest) {
+      const mode = nextQuest.acceptMode ?? 'auto';
+      if (mode === 'auto') {
+        const startStep = getStartStep(nextQuest);
+        const startNpcId = startStep?.entityId;
+        if (game.dialogueNpcId === startNpcId) {
+          game.startQuest(nextQuest.id);
+          const nextStep = getStepByIndex(nextQuest, 1);
+          applyStepCompleteAction(startStep, getStepEntityId(nextStep));
+        }
+      }
+    }
+
+    return result;
+  }, [game, chainedPendingQuestId, currentStep, quest, nextQuest, game.questPhase, game.selectedQuestId, game.questStepIndex, seenForcedStartDialogue, seenIntroDialogueSteps]);
 
   const resetQuestState = useCallback(() => {
     setShowQuestCompleteCelebration(false);
@@ -263,6 +343,7 @@ export function useQuestState(game: GameStateForQuest): UseQuestStateReturn {
     completedQuestInfo,
     isManualAcceptMode,
     isChainedPendingMode,
+    isAutoAcceptMode,
     showForcedStartDialogue,
     currentIntroDialogue,
     introDialogueIndex,

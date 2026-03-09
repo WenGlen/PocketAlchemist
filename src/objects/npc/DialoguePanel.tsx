@@ -28,6 +28,8 @@ interface DialoguePanelProps {
   isManualAcceptMode?: boolean;
   /** 是否為 chained 待承接模式（顯示 acceptText，關閉時自動承接） */
   isChainedPendingMode?: boolean;
+  /** 是否為 auto 承接模式（顯示 acceptText，關閉時自動承接） */
+  isAutoAcceptMode?: boolean;
   /** forced 模式：是否應顯示 start 對話（第一次與任務 NPC 對話時） */
   showForcedStartDialogue?: boolean;
   /** 當前步驟的 introDialogue（未看過時傳入，已看過傳 null） */
@@ -54,6 +56,7 @@ export function DialoguePanel({
   onAcceptQuest,
   isManualAcceptMode = false,
   isChainedPendingMode = false,
+  isAutoAcceptMode = false,
   showForcedStartDialogue = false,
   introDialogue = null,
   introDialogueIndex = -1,
@@ -239,12 +242,16 @@ export function DialoguePanel({
             <p className="text-xs text-[var(--color-text-muted)] mt-2">（關閉對話即承接任務）</p>
           </>
         )}
+        {/* idle 狀態：auto 模式顯示任務說明（關閉對話時自動承接） */}
+        {!isPlayingIntroDialogue && questPhase === 'idle' && isAutoAcceptMode && isQuestGiverNpc && startStep && (
+          <p className="text-[var(--color-primary)]">{startStep.acceptText}</p>
+        )}
         {/* accepted 狀態：forced 模式第一次對話顯示 start 的 acceptText（無按鈕） */}
         {!isPlayingIntroDialogue && questPhase === 'accepted' && showForcedStartDialogue && startStep && (
           <p className="text-[var(--color-primary)]">{startStep.acceptText}</p>
         )}
-        {/* idle 狀態：非 manual、chained 時顯示一般對話 */}
-        {!isPlayingIntroDialogue && questPhase === 'idle' && !isManualAcceptMode && !isChainedPendingMode && (
+        {/* idle 狀態：非任務承接模式時顯示一般對話 */}
+        {!isPlayingIntroDialogue && questPhase === 'idle' && !isManualAcceptMode && !isChainedPendingMode && !isAutoAcceptMode && (
           <>
             {lines.map((line, i) => (
               <p key={i}>{line}</p>

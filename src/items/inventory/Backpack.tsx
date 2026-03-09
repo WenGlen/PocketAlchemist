@@ -21,6 +21,8 @@ const DRAG_DEBUG = false;
 export type DropTargetFromBackpack =
   | { type: 'backpack'; index: number }
   | { type: 'synthesis'; index: number }
+  | { type: 'processing'; index: number }
+  | { type: 'equip'; index: number }
   | { type: 'delivery' }
   | { type: 'resource'; id: string }
   | { type: 'terrain'; id: string }
@@ -40,7 +42,7 @@ interface BackpackProps {
   onSlotPlaced?: (toIndex: number) => void;  // 背包內拖曳排序成功放入時呼叫，供 parent 顯示落地動效
 }
 
-function createGhostEl(itemName: string, count: number): HTMLDivElement {
+function createGhostEl(itemEmoji: string, itemName: string, count: number): HTMLDivElement {
   const el = document.createElement('div');
   el.setAttribute('data-drag-ghost', 'true');
   el.style.cssText = [
@@ -50,12 +52,12 @@ function createGhostEl(itemName: string, count: number): HTMLDivElement {
     `width:${ITEM_BOX_SIZE_PX}px`,
     `height:${ITEM_BOX_SIZE_PX}px`,
     `margin:0`,
-    `padding:4px`,
+    `padding:0`,
     `box-sizing:border-box`,
     `display:flex`,
     `flex-direction:column`,
     `align-items:center`,
-    `justify-content:center`,
+    `justify-content:flex-start`,
     `pointer-events:none`,
     `z-index:${DRAG_GHOST_Z_INDEX}`,
     `border:1pt solid var(--color-primary)`,
@@ -64,15 +66,19 @@ function createGhostEl(itemName: string, count: number): HTMLDivElement {
     `transform:translate(-50%,-50%)`,
     `border-radius:6px`,
     `box-shadow:0 10px 15px -3px rgba(0,0,0,0.2)`,
-    `font-size:12px`,
+    `overflow:hidden`,
   ].join(';');
-  const span = document.createElement('span');
-  span.style.cssText = 'text-align:center;word-break:break-word;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;';
-  span.textContent = itemName;
-  el.appendChild(span);
+  const emojiEl = document.createElement('div');
+  emojiEl.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;width:100%;font-size:22px;line-height:1;';
+  emojiEl.textContent = itemEmoji;
+  el.appendChild(emojiEl);
+  const nameEl = document.createElement('div');
+  nameEl.style.cssText = 'width:100%;padding:0 2px 2px;box-sizing:border-box;text-align:center;font-size:8px;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-all;color:var(--color-text-default);';
+  nameEl.textContent = itemName;
+  el.appendChild(nameEl);
   if (count > 1) {
     const badge = document.createElement('span');
-    badge.style.cssText = 'position:absolute;bottom:2px;right:4px;font-size:12px;';
+    badge.style.cssText = 'position:absolute;top:2px;right:3px;font-size:9px;color:var(--color-text-muted);';
     badge.textContent = String(count);
     el.appendChild(badge);
   }
@@ -147,7 +153,7 @@ export function Backpack({
           const slot = currentSlots[start.index];
           const item = slot ? getItem(slot.itemId) : null;
           if (slot && item) {
-            const ghost = createGhostEl(item.name, slot.count);
+            const ghost = createGhostEl(item.emoji, item.name, slot.count);
             ghost.style.left = `${moveEvent.clientX}px`;
             ghost.style.top = `${moveEvent.clientY}px`;
             document.body.appendChild(ghost);
@@ -208,7 +214,7 @@ export function Backpack({
   };
 
   return (
-    <div className="flex flex-wrap gap-2 p-2 justify-center">
+    <div className="grid grid-cols-4 gap-2 p-2 w-fit mx-auto">
       {Array.from({ length: capacity }, (_, i) => {
         const slot = slots[i];
         const item = slot ? getItem(slot.itemId) : null;
@@ -235,17 +241,24 @@ export function Backpack({
           >
             {item ? (
               <div
-                className={`absolute inset-px rounded-md border-[1pt] border-solid flex flex-col items-center justify-center cursor-grab active:cursor-grabbing border-[var(--color-border)] bg-[var(--color-panel-muted)] ${
+                className={`absolute inset-px rounded-md border-[1pt] border-solid flex flex-col items-stretch justify-start overflow-hidden cursor-grab active:cursor-grabbing border-[var(--color-border)] bg-[var(--color-panel-muted)] ${
                   isHighlight ? 'border-[var(--color-primary)] bg-[var(--color-primary-25)]' : ''
                 }`}
                 style={{ opacity: isDragging ? 0.5 : 1 }}
                 onPointerDown={(e) => handlePointerDown(e, i)}
               >
-                <span title={item.name} className="leading-tight px-0.5 text-center break-words line-clamp-2 text-xs max-w-full">
-                  {item.name}
-                </span>
+                {/* emoji 佔主要區域 */}
+                <div className="flex-1 flex items-center justify-center text-[22px] leading-none min-h-0">
+                  {item.emoji}
+                </div>
+                {/* 底部名稱小字 */}
+                <div className="w-full px-0.5 pb-[2px] text-center">
+                  <span title={item.name} className="block text-[8px] leading-tight break-all line-clamp-2 text-[var(--color-text-default)]">
+                    {item.name}
+                  </span>
+                </div>
                 {slot && slot.count > 1 && (
-                  <span className="absolute bottom-0.5 right-1 text-xs">{slot.count}</span>
+                  <span className="absolute top-[2px] right-[3px] text-[9px] leading-none text-[var(--color-text-muted)]">{slot.count}</span>
                 )}
               </div>
             ) : (

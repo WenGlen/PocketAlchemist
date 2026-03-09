@@ -84,11 +84,39 @@ export const MAP_FIELD_002: MapData = {
   },
 };
 
+// ========== MAP-shimmer-001 微光村斷崖 ==========
+// 【林間的鏽蝕迴聲】任務線場景
+// 小型地圖，老漢克受困於此
+
+export const MAP_SHIMMER_001: MapData = {
+  id: 'MAP-shimmer-001',
+  name: '微光村斷崖',
+  width: 1000,
+  height: 800,
+  texture: {
+    overlayUrl: 'https://www.transparenttextures.com/patterns/dust.png',
+    overlayOpacity: 0.2,
+    gradientColors: {
+      top: '#4a5568',  // 岩石灰
+      mid: '#68705c',  // 苔蘚綠灰
+      bottom: '#3d4a3a',  // 深林暗綠
+    },
+  },
+  spawnPoint: { x: 500, y: 600 },
+  features: {
+    walkable: true,
+    hasMonsters: false,
+    hasTerrainDamage: false,
+    showStats: [],
+  },
+};
+
 // ========== 地圖表與查詢 ==========
 
 export const mapsById: Record<string, MapData> = {
   [MAP_FIELD_001.id]: MAP_FIELD_001,
   [MAP_FIELD_002.id]: MAP_FIELD_002,
+  [MAP_SHIMMER_001.id]: MAP_SHIMMER_001,
 };
 
 export function getMap(id: string): MapData | undefined {

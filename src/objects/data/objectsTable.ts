@@ -162,17 +162,80 @@ export const OBJ_NPC_004: NpcDef = {
   subEmoji: '🧳',
 };
 
+// ── MAP-shimmer-001：微光村斷崖 NPC ────────────────────────────────
+
+// 老漢克：拾荒老兵，機械義肢受傷受困
+export const OBJ_NPC_005: NpcDef = {
+  id: 'OBJ-npc-005',
+  type: 'npc',
+  x: 500,
+  y: 200,
+  radius: 28,
+  interactive: true,
+  displayName: '老漢克',
+  dialogueKey: 'npc_hank',
+  emoji: '👴🏻',
+  subEmoji: '🦿',
+};
+
+// 小迪：伐木工學徒，老漢克的徒弟
+export const OBJ_NPC_006: NpcDef = {
+  id: 'OBJ-npc-006',
+  type: 'npc',
+  x: 800,
+  y: 350,
+  radius: 24,
+  interactive: true,
+  displayName: '小迪',
+  dialogueKey: 'npc_dee',
+  emoji: '👦🏻',
+  subEmoji: '🪵',
+};
+
+// 維修工羅根：大都市來的機械師
+export const OBJ_NPC_007: NpcDef = {
+  id: 'OBJ-npc-007',
+  type: 'npc',
+  x: 300,
+  y: 400,
+  radius: 24,
+  interactive: true,
+  displayName: '維修工羅根',
+  dialogueKey: 'npc_logan',
+  emoji: '🧑‍🔧',
+  subEmoji: '⚙️',
+};
+
+// 老木匠托托：微光村的工具收藏家
+export const OBJ_NPC_008: NpcDef = {
+  id: 'OBJ-npc-008',
+  type: 'npc',
+  x: 650,
+  y: 500,
+  radius: 24,
+  interactive: true,
+  displayName: '老木匠托托',
+  dialogueKey: 'npc_toto',
+  emoji: '👨‍🦳',
+  subEmoji: '🔧',
+};
+
 export const objectTable: Record<string, NpcDef> = {
   [OBJ_NPC_001.id]: OBJ_NPC_001,
   [OBJ_NPC_002.id]: OBJ_NPC_002,
   [OBJ_NPC_003.id]: OBJ_NPC_003,
   [OBJ_NPC_004.id]: OBJ_NPC_004,
+  [OBJ_NPC_005.id]: OBJ_NPC_005,
+  [OBJ_NPC_006.id]: OBJ_NPC_006,
+  [OBJ_NPC_007.id]: OBJ_NPC_007,
+  [OBJ_NPC_008.id]: OBJ_NPC_008,
 };
 
 // 依地圖篩選 NPC。NPC 若設有 positionByMap，渲染時以 mapId 對應座標覆蓋預設 x/y
 export const npcsByMap: Record<string, NpcDef[]> = {
   'MAP-field-001': [OBJ_NPC_001, OBJ_NPC_002, OBJ_NPC_003],
   'MAP-field-002': [OBJ_NPC_004, OBJ_NPC_001, OBJ_NPC_002],
+  'MAP-shimmer-001': [OBJ_NPC_005, OBJ_NPC_006, OBJ_NPC_007, OBJ_NPC_008],
 };
 
 export function getObject(id: string): NpcDef | undefined {
@@ -181,7 +244,7 @@ export function getObject(id: string): NpcDef | undefined {
 
 // ========== 資源點（MVP-00.01：茶樹、湖；MVP-01：藥草） ==========
 
-export type ResourceKind = 'tea_tree' | 'lake' | 'herb';
+export type ResourceKind = 'tea_tree' | 'lake' | 'herb' | 'cleansing_grass';
 
 // 取得方式：點擊直接獲得 / 給予道具交換 / 使用工具（預留）
 export type ResourceAcquisitionType = 'tap' | 'exchange' | 'tool';
@@ -337,15 +400,82 @@ export const OBJ_RES_006: ResourceNodeDef = {
   emoji: '🌊',
 };
 
+// ── 資源點：MAP-shimmer-001（微光村斷崖）───────────────────────────
+
+// 斷崖藥草：用於合成治療藥水
+export const OBJ_RES_007: ResourceNodeDef = {
+  id: 'OBJ-res-007',
+  type: 'resource_node',
+  x: 700,
+  y: 300,
+  radius: 24,
+  interactive: true,
+  kind: 'herb',
+  displayName: '斷崖藥草',
+  mapLabel: '藥草',
+  mapColor: 'var(--color-map-grass-mid)',
+  acquisitionType: 'tap',
+  gatherItemId: 'ITM-mat-0004',  // 藥草
+  gatherLimitByMap: { 'MAP-shimmer-001': 5 },
+  gatherEffectId: 'shake_float',
+  gatherFloatText: '+1 藥草',
+  proximityBubbleText: '可採集藥草',
+  emoji: '🌿',
+};
+
+// 斷崖泉水：可用玻璃瓶裝水
+export const OBJ_RES_008: ResourceNodeDef = {
+  id: 'OBJ-res-008',
+  type: 'resource_node',
+  x: 200,
+  y: 500,
+  radius: 28,
+  interactive: true,
+  kind: 'lake',
+  displayName: '斷崖泉水',
+  mapLabel: '泉水',
+  mapColor: 'var(--color-secondary-50)',
+  acquisitionType: 'exchange',
+  requireItemId: 'ITM-mat-0001',
+  resultItemId: 'ITM-mat-0003',
+  requireItemEffectId: 'ripple_float',
+  exchangeFloatText: '裝水成功',
+  proximityBubbleText: '可用玻璃瓶裝水',
+  emoji: '💧',
+};
+
+// 清淤草：發出淡淡紫光的長葉草，可吸除鏽蝕毒素
+export const OBJ_RES_009: ResourceNodeDef = {
+  id: 'OBJ-res-009',
+  type: 'resource_node',
+  x: 350,
+  y: 150,
+  radius: 24,
+  interactive: true,
+  kind: 'cleansing_grass',
+  displayName: '清淤草',
+  mapLabel: '清淤草',
+  mapColor: '#9b59b6',  // 淡紫色
+  acquisitionType: 'tap',
+  gatherItemId: 'ITM-mat-0010',  // 清淤草
+  gatherLimitByMap: { 'MAP-shimmer-001': 5 },
+  gatherEffectId: 'shake_float',
+  gatherFloatText: '+1 清淤草',
+  proximityBubbleText: '發出淡淡紫光的藥草',
+  emoji: '🌾',
+};
+
 export const resourceNodes: ResourceNodeDef[] = [
   OBJ_RES_001, OBJ_RES_002, OBJ_RES_003,
   OBJ_RES_004, OBJ_RES_005, OBJ_RES_006,
+  OBJ_RES_007, OBJ_RES_008, OBJ_RES_009,
 ];
 
 // 依地圖篩選資源點
 export const resourceNodesByMap: Record<string, ResourceNodeDef[]> = {
   'MAP-field-001': [OBJ_RES_001, OBJ_RES_002, OBJ_RES_003],
   'MAP-field-002': [OBJ_RES_004, OBJ_RES_005, OBJ_RES_006],
+  'MAP-shimmer-001': [OBJ_RES_007, OBJ_RES_008, OBJ_RES_009],
 };
 
 export function getResourceNode(id: string): ResourceNodeDef | undefined {

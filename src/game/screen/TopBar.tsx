@@ -10,6 +10,7 @@ import { APP_VERSION } from '../version';
 import { useAudioMute } from '../../assets/audio';
 import { getQuest, isQuestUnlocked } from '../../quests/data/questData';
 import { getMap } from '../../maps/data/mapsTable';
+import { getItem } from '../../items/data/itemsTable';
 
 // ========== Props ==========
 
@@ -20,6 +21,7 @@ interface TopBarProps {
   completedQuestIds: string[];
   onEnterMap: (mapId: string) => void;
   onSelectMission: (mapId: string, questId: string) => void;  // 開發測試用（會重置一切）
+  onCheatAddItem?: (itemId: string, count: number) => void;   // 金手指：新增道具
 }
 
 export function TopBar({
@@ -29,9 +31,14 @@ export function TopBar({
   completedQuestIds,
   onEnterMap,
   onSelectMission,
+  onCheatAddItem,
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [devMenuOpen, setDevMenuOpen] = useState(false);
+  const [cheatMenuOpen, setCheatMenuOpen] = useState(false);
+  const [cheatItemId, setCheatItemId] = useState('');
+  const [cheatCount, setCheatCount] = useState('1');
+  const [cheatMessage, setCheatMessage] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [muted, toggleMute] = useAudioMute();
 
@@ -48,16 +55,17 @@ export function TopBar({
   const mapIds = useMemo(() => Object.keys(mapGroups), [mapGroups]);
 
   useEffect(() => {
-    if (!menuOpen && !devMenuOpen) return;
+    if (!menuOpen && !devMenuOpen && !cheatMenuOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
         setDevMenuOpen(false);
+        setCheatMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen, devMenuOpen]);
+  }, [menuOpen, devMenuOpen, cheatMenuOpen]);
 
   const handleSelectMap = (mapId: string) => {
     onEnterMap(mapId);
@@ -67,6 +75,21 @@ export function TopBar({
   const handleSelectMission = (m: MissionEntry) => {
     onSelectMission(m.mapId, m.questId);
     setDevMenuOpen(false);
+  };
+
+  const handleCheatSubmit = () => {
+    if (!onCheatAddItem) return;
+    const trimmedId = cheatItemId.trim();
+    const count = parseInt(cheatCount, 10) || 1;
+    const item = getItem(trimmedId);
+    if (!item) {
+      setCheatMessage(`❌ 找不到道具：${trimmedId}`);
+      return;
+    }
+    onCheatAddItem(trimmedId, count);
+    setCheatMessage(`✅ 獲得 ${item.name} x${count}`);
+    setCheatItemId('');
+    setCheatCount('1');
   };
 
   const currentMapName = getMap(currentMapId)?.name ?? currentMapId;
@@ -154,6 +177,17 @@ export function TopBar({
                 </button>
                 <button
                   type="button"
+                  className="w-full text-left px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-panel-muted)]"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setCheatMenuOpen(true);
+                    setCheatMessage(null);
+                  }}
+                >
+                  🎮 金手指：新增道具
+                </button>
+                <button
+                  type="button"
                   className="w-full text-left px-3 py-1.5 text-xs text-[var(--color-text-error)] hover:bg-[var(--color-panel-muted)]"
                   onClick={() => {
                     localStorage.removeItem('pa_completed_quests');
@@ -218,6 +252,60 @@ export function TopBar({
                   }}
                 >
                   ← 返回地圖選單
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 金手指選單 */}
+          {cheatMenuOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 py-2 px-3 min-w-[240px] rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] shadow-lg z-50"
+              role="menu"
+            >
+              <div className="text-xs text-[var(--color-text-muted)] mb-2">
+                🎮 金手指：新增道具
+              </div>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="道具編號 (如 ITM-pot-0001)"
+                  value={cheatItemId}
+                  onChange={(e) => setCheatItemId(e.target.value)}
+                  className="w-full px-2 py-1.5 text-sm rounded border border-[var(--color-border)] bg-[var(--color-panel-muted)] text-[var(--color-text-default)] placeholder:text-[var(--color-text-muted)]"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    placeholder="數量"
+                    value={cheatCount}
+                    onChange={(e) => setCheatCount(e.target.value)}
+                    className="w-16 px-2 py-1.5 text-sm rounded border border-[var(--color-border)] bg-[var(--color-panel-muted)] text-[var(--color-text-default)]"
+                  />
+                  <button
+                    type="button"
+                    className="flex-1 px-3 py-1.5 text-sm rounded bg-[var(--color-btn-emphasized)] text-[var(--color-btn-emphasized-text)] hover:brightness-110"
+                    onClick={handleCheatSubmit}
+                  >
+                    獲得
+                  </button>
+                </div>
+                {cheatMessage && (
+                  <div className="text-xs py-1">{cheatMessage}</div>
+                )}
+              </div>
+              <div className="border-t border-[var(--color-border)] mt-2 pt-2">
+                <button
+                  type="button"
+                  className="w-full text-left text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-default)]"
+                  onClick={() => {
+                    setCheatMenuOpen(false);
+                    setMenuOpen(true);
+                  }}
+                >
+                  ← 返回選單
                 </button>
               </div>
             </div>

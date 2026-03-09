@@ -170,10 +170,15 @@ export function SynthesisPanel({
           );
         })}
         <span className="text-[var(--color-text-muted)] text-sm">→</span>
+        {/* 輸出預覽：有配方時可直接點擊觸發合成 */}
         <div
-          className={`w-16 h-16 rounded-xl flex flex-col items-center justify-center min-w-[4rem] text-center ${
+          role={recipe ? 'button' : undefined}
+          tabIndex={recipe ? 0 : undefined}
+          onClick={recipe ? handleCraft : undefined}
+          onKeyDown={(e) => { if (recipe && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleCraft(); } }}
+          className={`w-16 h-16 rounded-xl flex flex-col items-center justify-center min-w-[4rem] text-center transition-[transform,box-shadow] duration-100 ${
             recipe
-              ? `border-[3px] border-[var(--color-primary)] bg-[var(--color-primary-25)] shadow-[0_0_16px_var(--color-primary-50)] ${justCrafted ? 'animate-craft-result-glow' : ''}`
+              ? `border-[3px] border-[var(--color-primary)] bg-[var(--color-primary-25)] shadow-[0_0_16px_var(--color-primary-50)] cursor-pointer active:scale-95 ${justCrafted ? 'animate-craft-result-glow' : ''}`
               : 'border-2 border-[var(--color-border)] bg-[var(--color-panel-50)]'
           }`}
         >

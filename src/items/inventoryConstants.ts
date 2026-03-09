@@ -20,5 +20,6 @@ export const DRAG_GHOST_Z_INDEX = 2147483647;  // 拖曳幽靈 z-index（最高�
 
 // ========== 容量設定 ==========
 
-export const BACKPACK_CAPACITY = 10;  // 背包預設容量（格數）
+export const BACKPACK_CAPACITY = 8;  // 背包預設容量（格數）
 export const SYNTHESIS_SLOTS = 2;  // 合成槽數量
+export const PROCESSING_SLOTS = 1;  // 加工槽數量

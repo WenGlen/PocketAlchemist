@@ -67,6 +67,8 @@ export interface MapContentState {
   interactableNpcId: string | null;
   // NPC 臨時移動：任務進行期間覆蓋 NPC 位置
   npcPositionOverrides?: Record<string, { x: number; y: number }> | null;
+  // 任務期間隱藏的 NPC
+  hiddenNpcIds: Set<string>;
 }
 
 export type MapEntityType = 'npc' | 'resource' | 'monster' | 'terrain';
@@ -102,18 +104,22 @@ export function useMapContent(
     bubbleLabel,
     interactableNpcId,
     npcPositionOverrides,
+    hiddenNpcIds,
   } = state;
 
   const rawNpcs = npcsByMap[mapId] ?? [objectTable['OBJ-npc-001']!];
   // 依 npcPositionOverrides（任務覆蓋）或 positionByMap（地圖預設）覆蓋 NPC 座標
-  const npcs = rawNpcs.map((n) => {
-    // 任務覆蓋優先
-    const questOverride = npcPositionOverrides?.[n.id];
-    if (questOverride) return { ...n, x: questOverride.x, y: questOverride.y };
-    // 地圖預設覆蓋
-    const mapOverride = n.positionByMap?.[mapId];
-    return mapOverride ? { ...n, x: mapOverride.x, y: mapOverride.y } : n;
-  });
+  // 過濾掉被隱藏的 NPC
+  const npcs = rawNpcs
+    .filter((n) => !hiddenNpcIds.has(n.id))
+    .map((n) => {
+      // 任務覆蓋優先
+      const questOverride = npcPositionOverrides?.[n.id];
+      if (questOverride) return { ...n, x: questOverride.x, y: questOverride.y };
+      // 地圖預設覆蓋
+      const mapOverride = n.positionByMap?.[mapId];
+      return mapOverride ? { ...n, x: mapOverride.x, y: mapOverride.y } : n;
+    });
   const resources = (resourceNodesByMap[mapId] ?? resourceNodes).filter((n) => !n.hidden);
 
   const hitTestTargets: HitTestTargets = useMemo(

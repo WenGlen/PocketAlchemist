@@ -8,14 +8,18 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useGameState } from './useGameState';
 import { playSound } from '../assets/audio';
 import { useBackpack } from '../items/inventory/useBackpack';
+import { useEquipSlots } from '../items/equipment/useEquipSlots';
 import { TopBar } from './screen/TopBar';
 import { StatsBar } from './screen/StatsBar';
 import { MapArea, hitTest } from './screen/MapArea';
 import { useMapContent } from './screen/useMapContent';
 import { BottomInventory } from './screen/BottomInventory';
+import type { PanelConfig } from './screen/BottomInventory';
+import { SynthesisPanel } from '../items/inventory/synthesis/SynthesisPanel';
+import { ProcessingPanel } from '../items/inventory/processing/ProcessingPanel';
 import { DialoguePanel } from '../objects/npc/DialoguePanel';
 import { getObject, getResourceNode, getResourceNodesRequiringItem, getGatherLimitForNode, getLabTerrain } from '../objects/data/objectsTable';
-import { ITM_MAT_0001, getItem } from '../items/data/itemsTable';
+import { ITM_MAT_0001, ITM_EQP_0001, ITM_EQP_0002, getItem } from '../items/data/itemsTable';
 import type { SlotItem } from '../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../items/inventory/Backpack';
 import { getStartStep } from '../quests/data/questData';
@@ -27,12 +31,23 @@ import { BACKPACK_CAPACITY } from '../items/inventoryConstants';
 import { getDisplayStats } from './screen/statsConfig';
 import { missionList } from '../quests/data/missionList';
 
+// ========== 技能面板定義 ==========
+// 對應裝備 skill 欄位，定義面板 ID、按鈕標籤、展開高度
+const SKILL_PANEL_DEFS: Record<string, { label: string; maxHeight: number }> = {
+  synthesis: { label: '合成', maxHeight: 208 },
+  processing: { label: '加工', maxHeight: 180 },
+};
+
 // ========== 工具函數 ==========
 
-// 初始背包：玻璃瓶不可堆疊，每瓶一格
+// 初始背包：玻璃瓶 x2 + 簡易加熱器 + 手套
 function getInitialSlotsForMap(_mapId: string): { itemId: string; count: number }[] {
-  const bottle = { itemId: ITM_MAT_0001.id, count: 1 };
-  return [bottle, bottle];
+  return [
+    { itemId: ITM_MAT_0001.id, count: 1 },
+    { itemId: ITM_MAT_0001.id, count: 1 },
+    { itemId: ITM_EQP_0001.id, count: 1 },
+    { itemId: ITM_EQP_0002.id, count: 1 },
+  ];
 }
 
 export function GameScreen() {
@@ -46,20 +61,27 @@ export function GameScreen() {
     initialSlots,
     resetKey: game.missionResetKey,
   });
+  const equipSlots = useEquipSlots({ resetKey: game.missionResetKey });
 
   const [synthesisSlots, setSynthesisSlots] = useState<(SlotItem | null)[]>([null, null]);
-  const [synthesisExpanded, setSynthesisExpanded] = useState(false);
+  const [processingSlots, setProcessingSlots] = useState<(SlotItem | null)[]>([null]);
+  const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const [deliveryMessage, setDeliveryMessage] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTargetFromBackpack>(null);
   const [lastPlacedSlotIndex, setLastPlacedSlotIndex] = useState<number | null>(null);
   const [justCrafted, setJustCrafted] = useState(false);
+  const [justProcessed, setJustProcessed] = useState(false);
 
   // 任務狀態管理（從 useQuestState hook 取得）
   const questState = useQuestState(game);
   const synthesisSlotsRef = useRef(synthesisSlots);
   synthesisSlotsRef.current = synthesisSlots;
+  const processingSlotsRef = useRef(processingSlots);
+  processingSlotsRef.current = processingSlots;
   const backpackRef = useRef(backpack);
   backpackRef.current = backpack;
+  const equipSlotsRef = useRef(equipSlots);
+  equipSlotsRef.current = equipSlots;
   const screenToWorldRef = useRef<((clientX: number, clientY: number) => { x: number; y: number }) | null>(null);  // 拖曳時需要與點擊相同的座標換算與判定目標，避免 stale closure
   const hitTestTargetsRef = useRef<{ resources: { id: string; x: number; y: number; radius: number }[] }>({ resources: [] });
 
@@ -68,22 +90,47 @@ export function GameScreen() {
   // 切換／重新開始任務時重置本畫面狀態
   useEffect(() => {
     setSynthesisSlots([null, null]);
-    setSynthesisExpanded(false);
+    setProcessingSlots([null]);
+    setActivePanelId(null);
     setDeliveryMessage(null);
     setDropTarget(null);
     questState.resetQuestState();
   }, [game.missionResetKey, questState.resetQuestState]);
 
-  // 跟 NPC 對話或移動時強制收合合成視窗，並把合成欄位內道具歸還背包（不依賴 backpack 避免無限迴圈）
+  // 面板關閉時把合成槽道具歸還背包
+  useEffect(() => {
+    if (activePanelId === 'synthesis') return;
+    synthesisSlotsRef.current.forEach((s) => {
+      if (s) backpackRef.current.addItem(s.itemId, s.count);
+    });
+    setSynthesisSlots([null, null]);
+  }, [activePanelId]);
+
+  // 面板關閉時把加工槽道具歸還背包
+  useEffect(() => {
+    if (activePanelId === 'processing') return;
+    processingSlotsRef.current.forEach((s) => {
+      if (s) backpackRef.current.addItem(s.itemId, s.count);
+    });
+    setProcessingSlots([null]);
+  }, [activePanelId]);
+
+  // 移動時關閉面板
   useEffect(() => {
     if (game.moveDirection.x !== 0 || game.moveDirection.y !== 0) {
-      synthesisSlotsRef.current.forEach((s) => {
-        if (s) backpackRef.current.addItem(s.itemId, s.count);
-      });
-      setSynthesisSlots([null, null]);
-      setSynthesisExpanded(false);
+      setActivePanelId(null);
     }
   }, [game.moveDirection.x, game.moveDirection.y]);
+
+  // 裝備改變時，若面板對應的裝備已取下則自動關閉
+  useEffect(() => {
+    if (!activePanelId) return;
+    const stillEquipped = equipSlots.slots.some((slot) => {
+      const item = slot ? getItem(slot.itemId) : null;
+      return item?.skill === activePanelId;
+    });
+    if (!stillEquipped) setActivePanelId(null);
+  }, [equipSlots.slots, activePanelId]);
 
   const npc = game.dialogueNpcId ? getObject(game.dialogueNpcId) : null;
 
@@ -113,33 +160,41 @@ export function GameScreen() {
 
   // ── 互動處理 ─────────────────────────────────────────────────
 
-  // 收合合成時把合成欄位內的道具全部歸還背包，再關閉
-  const flushSynthesisToBackpackAndClose = useCallback(() => {
-    synthesisSlotsRef.current.forEach((s) => {
-      if (s) backpack.addItem(s.itemId, s.count);
-    });
-    setSynthesisSlots([null, null]);
-    setSynthesisExpanded(false);
-  }, [backpack]);
+  // 關閉所有面板（並確保合成槽道具歸還背包，由 activePanelId effect 處理）
+  const closeActivePanel = useCallback(() => {
+    setActivePanelId(null);
+  }, []);
 
   const handleTapNpc = (npcId: string) => {
     // MVP-02-4 簡化版：只有 interactableNpcId 的 NPC 可互動
     if (npcId !== interactableNpcId) return;
 
-    flushSynthesisToBackpackAndClose();
+    closeActivePanel();
 
     // idle 狀態：點擊任務發放 NPC 時，根據 acceptMode 決定是否自動承接
     if (game.questPhase === 'idle' && nextQuest) {
       const mode: AcceptMode = nextQuest.acceptMode ?? 'auto';
-      // manual 模式：不自動承接，等待玩家按「接受任務」按鈕
-      // auto/forced/chained 模式：自動承接
-      if (mode !== 'manual') {
+      // forced 模式：立即承接任務（不顯示 acceptText）
+      // auto 模式：先顯示 acceptText，關閉對話時再自動承接（由 useQuestState 處理）
+      // manual 模式：顯示 acceptText，等待玩家按「接受任務」按鈕
+      // chained 模式：由 handleCloseQuestCelebration 處理
+      if (mode === 'forced') {
         game.startQuest(nextQuest.id);
       }
     }
 
     game.openDialogue(npcId);
   };
+
+  // ── 裝備操作 ────────────────────────────────────────────────
+
+  // 取下裝備：歸還背包（透過 ref 讀取，避免 stale closure）
+  const handleUnequip = useCallback((index: number) => {
+    const slot = equipSlotsRef.current.slots[index];
+    if (!slot) return;
+    backpackRef.current.addItem(slot.itemId, slot.count);
+    equipSlotsRef.current.setSlot(index, null);
+  }, []);
 
   const setSynthesisSlot = useCallback((index: number, item: { itemId: string; count: number } | null) => {
     setSynthesisSlots((prev) => {
@@ -149,9 +204,18 @@ export function GameScreen() {
     });
   }, []);
 
+  const setProcessingSlot = useCallback((index: number, item: { itemId: string; count: number } | null) => {
+    setProcessingSlots((prev) => {
+      const next = [...prev];
+      next[index] = item;
+      return next;
+    });
+  }, []);
+
   const handleCraft = useCallback(
     (resultItemId: string, resultCount: number) => {
       backpack.addItem(resultItemId, resultCount);
+      setSynthesisSlots([null, null]);
       playSound('synthesize');
       setJustCrafted(true);
     },
@@ -160,12 +224,25 @@ export function GameScreen() {
 
   useEffect(() => {
     if (!justCrafted) return;
-    const t = setTimeout(() => {
-      setJustCrafted(false);
-      setSynthesisSlots([null, null]);
-    }, CRAFT_CLEAR_DELAY_MS);
+    const t = setTimeout(() => setJustCrafted(false), CRAFT_CLEAR_DELAY_MS);
     return () => clearTimeout(t);
   }, [justCrafted]);
+
+  const handleProcess = useCallback(
+    (outputItemId: string, outputCount: number) => {
+      backpack.addItem(outputItemId, outputCount);
+      setProcessingSlots([null]);
+      playSound('synthesize');
+      setJustProcessed(true);
+    },
+    [backpack]
+  );
+
+  useEffect(() => {
+    if (!justProcessed) return;
+    const t = setTimeout(() => setJustProcessed(false), CRAFT_CLEAR_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [justProcessed]);
 
   useEffect(() => {
     if (lastPlacedSlotIndex == null) return;
@@ -176,6 +253,8 @@ export function GameScreen() {
   const handleDragMoveFromBackpack = useCallback((clientX: number, clientY: number) => {
     const el = document.elementFromPoint(clientX, clientY);
     const synth = el?.closest('[data-synthesis-slot]');
+    const proc = el?.closest('[data-processing-slot]');
+    const equip = el?.closest('[data-equip-slot]');
     const delivery = el?.closest('[data-delivery-zone]');
     const terrain = el?.closest('[data-terrain-drop]');
     const slot = el?.closest('[data-slot-index]');
@@ -185,6 +264,12 @@ export function GameScreen() {
     if (synth) {
       const i = parseInt(synth.getAttribute('data-synthesis-slot-index') ?? '0', 10);
       setDropTarget({ type: 'synthesis', index: i });
+    } else if (proc) {
+      const i = parseInt(proc.getAttribute('data-processing-slot-index') ?? '0', 10);
+      setDropTarget({ type: 'processing', index: i });
+    } else if (equip) {
+      const i = parseInt(equip.getAttribute('data-equip-slot-index') ?? '0', 10);
+      setDropTarget({ type: 'equip', index: i });
     } else if (delivery) setDropTarget({ type: 'delivery' });
     else if (terrain) setDropTarget({ type: 'terrain', id: terrain.getAttribute('data-terrain-drop') ?? '' });
     else if (resourceId) setDropTarget({ type: 'resource', id: resourceId });
@@ -201,12 +286,29 @@ export function GameScreen() {
 
       const el = document.elementFromPoint(clientX, clientY);
       const synthSlot = el?.closest('[data-synthesis-slot]');
+      const procSlotEl = el?.closest('[data-processing-slot]');
+      const equipSlotEl = el?.closest('[data-equip-slot]');
       const deliveryZone = el?.closest('[data-delivery-zone]');
       const terrainDrop = el?.closest('[data-terrain-drop]');
       const terrainId = terrainDrop?.getAttribute('data-terrain-drop');
       // 資源點改用世界座標圓形判定，與點擊判定完全一致
       const world = screenToWorldRef.current?.(clientX, clientY);
       const resourceId = world ? hitTest(world.x, world.y, hitTestTargetsRef.current.resources) : null;
+
+      // 裝備欄放入：只接受 subCategory='eqp' + part='hand' 的道具
+      if (equipSlotEl) {
+        const equipIndex = parseInt(equipSlotEl.getAttribute('data-equip-slot-index') ?? '-1', 10);
+        if (equipIndex >= 0) {
+          const itemDef = getItem(item.itemId);
+          if (itemDef?.subCategory === 'eqp' && itemDef.part === 'hand') {
+            const currentEquip = equipSlotsRef.current.slots[equipIndex];
+            if (currentEquip) backpackRef.current.addItem(currentEquip.itemId, currentEquip.count);
+            equipSlotsRef.current.setSlot(equipIndex, { itemId: item.itemId, count: 1 });
+            backpackRef.current.removeItem(backpackSlotIndex, 1);
+          }
+        }
+        return;
+      }
 
       if (synthSlot) {
         const slotIndex = parseInt(
@@ -217,6 +319,16 @@ export function GameScreen() {
         if (current) backpack.addItem(current.itemId, current.count);
         setSynthesisSlot(slotIndex, { itemId: item.itemId, count: 1 });
         backpack.removeItem(backpackSlotIndex, 1);
+      }
+
+      // 加工槽放入：交換原有素材
+      if (procSlotEl) {
+        const procIndex = parseInt(procSlotEl.getAttribute('data-processing-slot-index') ?? '0', 10);
+        const current = processingSlotsRef.current[procIndex];
+        if (current) backpack.addItem(current.itemId, current.count);
+        setProcessingSlot(procIndex, { itemId: item.itemId, count: 1 });
+        backpack.removeItem(backpackSlotIndex, 1);
+        return;
       }
 
       if (deliveryZone && game.questPhase === 'accepted' && quest && currentStep?.type === 'deliver_to' && currentStep.entityId === game.dialogueNpcId) {
@@ -266,7 +378,7 @@ export function GameScreen() {
         }
       }
     },
-    [backpack, game, quest, currentStep, game.questStepIndex, game.dialogueNpcId, synthesisSlots, setSynthesisSlot, game.playerPosition.x, game.playerPosition.y]
+    [backpack, game, quest, currentStep, game.questStepIndex, game.dialogueNpcId, synthesisSlots, setSynthesisSlot, setProcessingSlot, game.playerPosition.x, game.playerPosition.y]
   );
 
   const handleDragEndFromSynthesis = useCallback(
@@ -284,6 +396,23 @@ export function GameScreen() {
       }
     },
     [backpack, synthesisSlots, setSynthesisSlot]
+  );
+
+  const handleDragEndFromProcessing = useCallback(
+    (processingSlotIndex: number, clientX: number, clientY: number) => {
+      const slotItem = processingSlotsRef.current[processingSlotIndex];
+      if (!slotItem) return;
+
+      const el = document.elementFromPoint(clientX, clientY);
+      const backpackSlot = el?.closest('[data-slot-index]');
+      if (backpackSlot) {
+        const toIndex = parseInt(backpackSlot.getAttribute('data-slot-index') ?? '-1', 10);
+        backpackRef.current.addItem(slotItem.itemId, slotItem.count);
+        setProcessingSlot(processingSlotIndex, null);
+        if (toIndex >= 0) setLastPlacedSlotIndex(toIndex);
+      }
+    },
+    [setProcessingSlot]
   );
 
   const handleTapResource = useCallback(
@@ -334,8 +463,13 @@ export function GameScreen() {
 
   // 關閉對話窗：委託 questState 處理任務邏輯，再關閉對話
   const handleCloseDialogue = useCallback(() => {
-    const shouldClose = questState.handleQuestDialogueClose();
-    if (!shouldClose) return;  // forced 模式第一次點擊不關閉
+    const result = questState.handleQuestDialogueClose();
+
+    // 執行 NPC 隱藏/顯示動作
+    if (result.hideNpc?.length) game.hideNpcs(result.hideNpc);
+    if (result.showNpc?.length) game.showNpcs(result.showNpc);
+
+    if (!result.shouldClose) return;  // onStepComplete: 'continue' 時不關閉
 
     game.closeDialogue();
     setDeliveryMessage(null);
@@ -376,6 +510,7 @@ export function GameScreen() {
       bubbleLabel: questState.displayBubbleLabel,
       interactableNpcId,
       npcPositionOverrides: game.questPhase === 'accepted' ? quest?.npcPositionOverrides : null,
+      hiddenNpcIds: game.hiddenNpcIds,
     },
     { onTap: handleMapTap }
   );
@@ -392,6 +527,7 @@ export function GameScreen() {
           completedQuestIds={game.completedQuestIds}
           onEnterMap={game.enterMap}
           onSelectMission={game.selectMission}
+          onCheatAddItem={backpack.addItem}
         />
         <StatsBar stats={displayStats} />
         <div className="flex flex-col flex-1 min-h-0 relative">
@@ -451,6 +587,7 @@ export function GameScreen() {
               onAcceptQuest={questState.handleAcceptQuest}
               isManualAcceptMode={questState.isManualAcceptMode}
               isChainedPendingMode={questState.isChainedPendingMode}
+              isAutoAcceptMode={questState.isAutoAcceptMode}
               showForcedStartDialogue={questState.showForcedStartDialogue}
               introDialogue={questState.currentIntroDialogue}
               introDialogueIndex={questState.introDialogueIndex}
@@ -459,34 +596,71 @@ export function GameScreen() {
             />
           )}
         </div>
-        <BottomInventory
-          slots={backpack.slots}
-          capacity={backpack.capacity}
-          onMoveSlot={backpack.moveSlot}
-          synthesisSlots={synthesisSlots}
-          onSetSynthesisSlot={setSynthesisSlot}
-          onCraft={handleCraft}
-          onDragEndFromBackpack={handleDragEndFromBackpack}
-          onDragEndFromSynthesis={handleDragEndFromSynthesis}
-          onDragMoveFromBackpack={handleDragMoveFromBackpack}
-          onDragEndOrCancelFromBackpack={handleDragEndOrCancelFromBackpack}
-          dropTarget={dropTarget}
-          lastPlacedSlotIndex={lastPlacedSlotIndex}
-          onSlotPlaced={(toIndex) => setLastPlacedSlotIndex(toIndex)}
-          highlightItemId={highlightItemId}
-          synthesisExpanded={synthesisExpanded}
-          onSynthesisExpandedChange={(expanded) => {
-            if (expanded) {
-              if (game.dialogueOpen) {
-                handleCloseDialogue();
-              }
-              setSynthesisExpanded(true);
-            } else {
-              flushSynthesisToBackpackAndClose();
-            }
-          }}
-          justCrafted={justCrafted}
-        />
+        {(() => {
+          // 依裝備欄道具建立技能按鈕設定
+          const skillButtonConfigs = equipSlots.slots.map((slot) => {
+            const item = slot ? getItem(slot.itemId) : null;
+            if (!item?.skill) return null;
+            const def = SKILL_PANEL_DEFS[item.skill];
+            if (!def) return null;
+            return { panelId: item.skill, label: def.label };
+          });
+
+          // 面板內容定義
+          const panelContents: Record<string, PanelConfig> = {
+            synthesis: {
+              panelId: 'synthesis',
+              maxHeight: 208,
+              content: (
+                <SynthesisPanel
+                  slots={synthesisSlots}
+                  onSetSlot={setSynthesisSlot}
+                  onCraft={handleCraft}
+                  onDragEndFromSynthesis={handleDragEndFromSynthesis}
+                  dragOverSynthesisSlotIndex={dropTarget?.type === 'synthesis' ? dropTarget.index : null}
+                  justCrafted={justCrafted}
+                />
+              ),
+            },
+            processing: {
+              panelId: 'processing',
+              maxHeight: 180,
+              content: (
+                <ProcessingPanel
+                  slots={processingSlots}
+                  onProcess={handleProcess}
+                  onDragEndFromProcessing={handleDragEndFromProcessing}
+                  dragOverProcessingSlotIndex={dropTarget?.type === 'processing' ? dropTarget.index : null}
+                  justProcessed={justProcessed}
+                />
+              ),
+            },
+          };
+
+          return (
+            <BottomInventory
+              slots={backpack.slots}
+              capacity={backpack.capacity}
+              onMoveSlot={backpack.moveSlot}
+              equipSlots={equipSlots.slots}
+              equipDropTargetIndex={dropTarget?.type === 'equip' ? dropTarget.index : null}
+              onUnequip={handleUnequip}
+              skillButtonConfigs={skillButtonConfigs}
+              activePanelId={activePanelId}
+              onSetActivePanelId={(id) => {
+                if (id !== null && game.dialogueOpen) handleCloseDialogue();
+                setActivePanelId(id);
+              }}
+              panelContents={panelContents}
+              onDragEndFromBackpack={handleDragEndFromBackpack}
+              onDragMoveFromBackpack={handleDragMoveFromBackpack}
+              onDragEndOrCancelFromBackpack={handleDragEndOrCancelFromBackpack}
+              lastPlacedSlotIndex={lastPlacedSlotIndex}
+              onSlotPlaced={(toIndex) => setLastPlacedSlotIndex(toIndex)}
+              highlightItemId={highlightItemId}
+            />
+          );
+        })()}
       </div>
 
       {/* MVP-02-4：任務完成彈窗，關閉後回到 idle 狀態繼續探索 */}

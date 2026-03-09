@@ -115,6 +115,7 @@ export function useGameState() {
   const [selectedPotionItemId, setSelectedPotionItemId] = useState<string | null>(null);  // tap 使用地形時選中的藥劑
   const [terrainClearedIds, setTerrainClearedIds] = useState<Record<string, boolean>>({});  // 已清除的地形 id
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);  // 當前選中的任務 ID（null = 無任務，idle 狀態）
+  const [hiddenNpcIds, setHiddenNpcIds] = useState<Set<string>>(new Set());  // 任務期間隱藏的 NPC
   const [missionResetKey, setMissionResetKey] = useState(0);  // 選單切換時遞增，供背包等重置
   const [monsterLastHitTimes, setMonsterLastHitTimes] = useState<Record<string, number>>({});  // 怪物攻擊時間戳（用於閃光動畫）
   const [monsterCooldownResetTimes, setMonsterCooldownResetTimes] = useState<Record<string, number>>({});  // 冷卻圈起始時間戳
@@ -334,9 +335,17 @@ export function useGameState() {
 
   // 鍵盤方向鍵 / WASD：桌機兼容
   useEffect(() => {
+    // 檢查是否在輸入框中（此時不攔截 WASD）
+    const isTyping = () => {
+      const tag = document.activeElement?.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA';
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const dir = KEY_TO_DIR[e.code];
       if (!dir) return;
+      // 輸入框中時，不攔截方向鍵與 WASD
+      if (isTyping()) return;
       e.preventDefault();
       keysPressed.current.add(e.code);
       setMoveDirection(() => {
@@ -358,6 +367,7 @@ export function useGameState() {
     const handleKeyUp = (e: KeyboardEvent) => {
       const dir = KEY_TO_DIR[e.code];
       if (!dir) return;
+      if (isTyping()) return;
       e.preventDefault();
       keysPressed.current.delete(e.code);
       setMoveDirection(() => {
@@ -572,5 +582,21 @@ export function useGameState() {
     missionResetKey,
     completedQuestIds,
     recordQuestCompletion,
+    // NPC 顯示/隱藏控制
+    hiddenNpcIds,
+    hideNpcs: useCallback((ids: string[]) => {
+      setHiddenNpcIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.add(id));
+        return next;
+      });
+    }, []),
+    showNpcs: useCallback((ids: string[]) => {
+      setHiddenNpcIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
+    }, []),
   };
 }
