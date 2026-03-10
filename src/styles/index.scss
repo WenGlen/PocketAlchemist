@@ -173,6 +173,13 @@ body {
   user-select: none;
 }
 
+// 後台與 theDev 面板允許文字選取，方便複製
+.admin-selectable,
+.thedev-panel-wrap {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 // ===========================================
 // UI 回饋動畫（拖曳落地、控制環、合成、慶祝）
 // ===========================================

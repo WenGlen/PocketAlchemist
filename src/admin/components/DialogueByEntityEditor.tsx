@@ -112,7 +112,7 @@ export function DialogueByEntityEditor({ value, onChange }: Props) {
                       value={line}
                       onChange={(e) => updateLine(npcId, lineIdx, e.target.value)}
                       placeholder="台詞內容"
-                      className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                     <button
                       type="button"

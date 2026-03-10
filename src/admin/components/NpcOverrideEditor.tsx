@@ -26,9 +26,6 @@ export function NpcOverrideEditor({ value, onChange }: Props) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-gray-500">
-        任務進行期間，指定 NPC 會臨時移動到新位置（覆蓋 objectsTable 的預設座標）。
-      </p>
 
       {value.length === 0 && (
         <div className="rounded-md border border-dashed border-gray-200 py-6 text-center text-sm text-gray-400">
@@ -65,7 +62,7 @@ export function NpcOverrideEditor({ value, onChange }: Props) {
                 type="number"
                 value={item.x}
                 onChange={(e) => update(idx, { x: Number(e.target.value) })}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div>
@@ -74,7 +71,7 @@ export function NpcOverrideEditor({ value, onChange }: Props) {
                 type="number"
                 value={item.y}
                 onChange={(e) => update(idx, { y: Number(e.target.value) })}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -88,6 +85,8 @@ export function NpcOverrideEditor({ value, onChange }: Props) {
       >
         + 新增 NPC 位置覆蓋
       </button>
+
+      <p className="text-xs text-gray-400">此步驟進行期間，指定 NPC 會臨時移動到新位置（覆蓋 objectsTable 的預設座標）。</p>
     </div>
   );
 }

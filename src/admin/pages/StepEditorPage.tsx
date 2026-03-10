@@ -41,7 +41,7 @@ export function StepEditorPage() {
           <span>/</span>
           <Link to={`/admin/quest/${quest.id}`} className="hover:text-gray-600">{quest.id}</Link>
           <span>/</span>
-          <Link to={`/admin/quest/${quest.id}/steps`} className="hover:text-gray-600">步驟管理</Link>
+          <Link to={`/admin/quest/${quest.id}`} className="hover:text-gray-600">步驟管理</Link>
           <span>/</span>
           <span className="text-gray-600">步驟 #{stepIndex}</span>
         </nav>

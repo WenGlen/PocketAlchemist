@@ -58,7 +58,7 @@ export function QuestNewPage() {
             value={questId}
             onChange={(e) => { setQuestId(e.target.value); setErrors((prev) => ({ ...prev, questId: '' })); }}
             placeholder="QST-main-012"
-            className={`w-full rounded-md border px-3 py-2 text-sm font-mono shadow-sm focus:outline-none focus:ring-1 ${
+            className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 font-mono shadow-sm focus:outline-none focus:ring-1 ${
               errors.questId ? 'border-red-400 focus:border-red-500 focus:ring-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
             }`}
           />
@@ -78,7 +78,7 @@ export function QuestNewPage() {
             value={name}
             onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: '' })); }}
             placeholder="例：奇特的委托"
-            className={`w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+            className={`w-full rounded-md border px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-1 ${
               errors.name ? 'border-red-400 focus:border-red-500 focus:ring-red-400' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
             }`}
           />
@@ -91,7 +91,7 @@ export function QuestNewPage() {
             <select
               value={mapId}
               onChange={(e) => setMapId(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">（未指定）</option>
               {MAP_OPTIONS.map((m) => (
@@ -110,7 +110,7 @@ export function QuestNewPage() {
               min={1}
               value={chainOrder}
               onChange={(e) => setChainOrder(Number(e.target.value))}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>

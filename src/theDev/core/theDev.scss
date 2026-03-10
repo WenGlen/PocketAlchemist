@@ -65,7 +65,7 @@
   top: 0;
   left: 0;
   right: 0;
-  max-height: 70vh;
+  max-height: 75vh;
   z-index: 10000;
   background: var(--thedev-panel-bg);
   border-radius: 0 0 16px 16px;
@@ -272,4 +272,16 @@
   background: hsla(340, 40%, 30%, 0.3);
   color: var(--thedev-error);
   border: 1px solid var(--thedev-error);
+}
+
+// 面板內允許文字選取，方便複製數值
+.thedev-panel-wrap {
+  -webkit-user-select: text;
+  user-select: text;
+  // 按鈕與 checkbox 仍不需要文字選取
+  .thedev-btn,
+  .thedev-checkbox-item {
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }

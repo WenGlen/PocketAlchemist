@@ -75,7 +75,7 @@ export function IntroDialogueEditor({ value, onChange }: Props) {
                   <select
                     value={line.speaker}
                     onChange={(e) => updateLine(idx, 'speaker', e.target.value)}
-                    className="w-40 shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="w-40 shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none"
                   >
                     <option value="player">🧙 player（主角）</option>
                     {NPC_OPTIONS.map((n) => (
@@ -90,7 +90,7 @@ export function IntroDialogueEditor({ value, onChange }: Props) {
                     value={line.content}
                     onChange={(e) => updateLine(idx, 'content', e.target.value)}
                     placeholder="台詞內容"
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 

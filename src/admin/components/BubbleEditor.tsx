@@ -50,18 +50,14 @@ export function BubbleEditor({ value, onChange, entityIdDefault }: Props) {
 
       {open && (
         <div className="border-t border-gray-200 px-4 pb-4 pt-3 space-y-3">
-          <p className="text-xs text-gray-400">泡泡顯示於 NPC 上方，提示玩家目前要做什麼。</p>
-
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
-              泡泡顯示 NPC
-              <span className="ml-1 font-normal text-gray-400">（空 = 沿用步驟的 entityId）</span>
-            </label>
+            <label className="mb-1 block text-xs font-medium text-gray-600">泡泡顯示 NPC</label>
             <EntitySelect
               value={value.bubbleEntityId}
               onChange={(v) => onChange({ ...value, bubbleEntityId: v })}
               placeholder="（沿用 entityId）"
             />
+            <p className="mt-1 text-xs text-gray-400">空 = 沿用步驟的 entityId</p>
           </div>
 
           <div>
@@ -80,7 +76,7 @@ export function BubbleEditor({ value, onChange, entityIdDefault }: Props) {
               value={value.bubbleLabel}
               onChange={(e) => onChange({ ...value, bubbleLabel: e.target.value })}
               placeholder="例：領取藥草、交付茶"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
