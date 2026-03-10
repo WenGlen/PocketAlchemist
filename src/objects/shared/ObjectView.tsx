@@ -1,4 +1,5 @@
-import { ISO_VISUAL, BUBBLE_SPACING, debugConfig } from '../objectsConstants';
+import { ISO_VISUAL, BUBBLE_SPACING } from '../objectsConstants';
+import { debugConfig } from '../../devVersion';
 
 //════════════════════════════════════════════════════════════════
 // ObjectView — 地圖非地形物件的統一視覺層。

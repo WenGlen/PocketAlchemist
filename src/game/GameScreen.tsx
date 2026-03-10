@@ -22,14 +22,13 @@ import { getObject, getResourceNode, getResourceNodesRequiringItem, getGatherLim
 import { ITM_MAT_0001, ITM_EQP_0001, ITM_EQP_0002, getItem } from '../items/data/itemsTable';
 import type { SlotItem } from '../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../items/inventory/Backpack';
-import { getStartStep } from '../quests/data/questData';
+import { getStartStep, getQuestListRuntime } from '../quests/data/questData';
 import type { AcceptMode } from '../quests/data/questData';
 import { useQuestState } from '../quests/useQuestState';
 import { interactionConfig } from './interactionConfig';
 import { PLACE_FEEDBACK_MS, CRAFT_CLEAR_DELAY_MS } from '../objects/objectsConstants';
 import { BACKPACK_CAPACITY } from '../items/inventoryConstants';
 import { getDisplayStats } from './screen/statsConfig';
-import { questList } from '../quests/data/questList';
 
 // ========== 技能面板定義 ==========
 // 對應裝備 skill 欄位，定義面板 ID、按鈕標籤、展開高度
@@ -523,7 +522,7 @@ export function GameScreen() {
         <TopBar
           currentMapId={game.mapId}
           currentQuestId={game.selectedQuestId}
-          quests={questList}
+          quests={getQuestListRuntime()}
           completedQuestIds={game.completedQuestIds}
           onEnterMap={game.enterMap}
           onSelectMission={game.selectMission}

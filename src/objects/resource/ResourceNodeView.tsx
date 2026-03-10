@@ -5,7 +5,8 @@
 
 import type { ResourceNodeDef } from '../data/objectsTable';
 import { ObjectView } from '../shared/ObjectView';
-import { debugConfig, ISO_VISUAL, OPACITY } from '../objectsConstants';
+import { ISO_VISUAL, OPACITY } from '../objectsConstants';
+import { debugConfig } from '../../devVersion';
 
 // ========== Props ==========
 

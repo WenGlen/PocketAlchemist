@@ -265,7 +265,7 @@ export const QST_MAIN_002: QuestDef = {
 // 任務三：商旅的委托（MAP-field-002 入口，無前置）
 export const QST_MAIN_003: QuestDef = {
   id: 'QST-main-003',
-  name: '商旅的委托',
+  name: '商旅的委托1',
   description: '旅行商人需要補給藥草。採集後交付即完成。',
   acceptMode: 'manual',  // 手動承接：需按「接受任務」按鈕
   steps: [
@@ -582,7 +582,8 @@ export const QST_MAIN_011: QuestDef = {
 
 // ========== 任務表與查詢 ==========
 
-export const questTable: Record<string, QuestDef> = {
+// 本地靜態資料（作為 initQuestRuntime 的預設值，也供 dataSource.ts 直接引用）
+export const localQuestTableData: Record<string, QuestDef> = {
   [QST_MAIN_001.id]: QST_MAIN_001,
   [QST_MAIN_002.id]: QST_MAIN_002,
   [QST_MAIN_003.id]: QST_MAIN_003,
@@ -596,8 +597,15 @@ export const questTable: Record<string, QuestDef> = {
   [QST_MAIN_011.id]: QST_MAIN_011,
 };
 
+// ── runtime 可替換的資料存儲 ─────────────────────────────────────
+// initQuestRuntime() 呼叫前使用本地資料；呼叫後切換為遠端資料
+let _questTable: Record<string, QuestDef> = localQuestTableData;
+
+// 保持向後相容的靜態 export（dataSource.ts 引用此 export 作為 localQuestTable）
+export const questTable: Record<string, QuestDef> = localQuestTableData;
+
 export function getQuest(id: string): QuestDef | undefined {
-  return questTable[id];
+  return _questTable[id];
 }
 
 // 判斷任務是否已解鎖：無前置任務則永遠開放；有前置則需在 completedQuestIds 中
@@ -620,7 +628,28 @@ export function getQuestGiverNpcId(quest: QuestDef): string | undefined {
 //       2. 任務對應的地圖 === mapId（透過 questList 查詢）
 //       3. 任務尚未完成
 //       4. 前置任務已完成（或無前置）
-import { questList } from './questList';
+import { questList as _localQuestList } from './questList';
+import type { QuestEntry } from './questList';
+
+// runtime 可替換的任務綁定表（initQuestRuntime 呼叫後切換為遠端資料）
+let _questList: QuestEntry[] = _localQuestList;
+
+/**
+ * 初始化 runtime 任務資料（通常在 App 啟動時由 dataSource.ts 呼叫）
+ * 呼叫後所有查詢函數將使用傳入的資料，不再讀取本地靜態檔案
+ */
+export function initQuestRuntime(
+  table: Record<string, QuestDef>,
+  list: QuestEntry[]
+): void {
+  _questTable = table;
+  _questList = list;
+}
+
+/** 取得當前 runtime questList（供無法直接 import 靜態值的元件使用） */
+export function getQuestListRuntime(): QuestEntry[] {
+  return _questList;
+}
 
 export function getAvailableQuestsForNpc(
   npcId: string,
@@ -628,14 +657,14 @@ export function getAvailableQuestsForNpc(
   completedQuestIds: string[]
 ): QuestDef[] {
   // 取得該地圖的所有任務 ID
-  const questIdsInMap = questList
+  const questIdsInMap = _questList
     .filter((q) => q.mapId === mapId)
     .map((q) => q.questId);
 
   const available: QuestDef[] = [];
 
   for (const questId of questIdsInMap) {
-    const quest = questTable[questId];
+    const quest = _questTable[questId];
     if (!quest) continue;
 
     // 檢查是否由此 NPC 發放
@@ -659,14 +688,14 @@ export function getAvailableQuestsForMap(
   mapId: string,
   completedQuestIds: string[]
 ): QuestDef[] {
-  const questIdsInMap = questList
+  const questIdsInMap = _questList
     .filter((q) => q.mapId === mapId)
     .map((q) => q.questId);
 
   const available: QuestDef[] = [];
 
   for (const questId of questIdsInMap) {
-    const quest = questTable[questId];
+    const quest = _questTable[questId];
     if (!quest) continue;
     if (completedQuestIds.includes(questId)) continue;
     if (!isQuestUnlocked(quest, completedQuestIds)) continue;
@@ -684,12 +713,12 @@ export function getNextQuest(
   completedQuestIds: string[]
 ): QuestDef | null {
   // 取得該地圖的任務，按 chainOrder 排序
-  const questsInMap = questList
+  const questsInMap = _questList
     .filter((q) => q.mapId === mapId)
     .sort((a, b) => (a.chainOrder ?? 0) - (b.chainOrder ?? 0));
 
   for (const entry of questsInMap) {
-    const quest = questTable[entry.questId];
+    const quest = _questTable[entry.questId];
     if (!quest) continue;
     // 已完成的跳過
     if (completedQuestIds.includes(entry.questId)) continue;

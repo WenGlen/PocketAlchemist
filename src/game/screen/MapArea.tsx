@@ -11,7 +11,7 @@ import { getMap } from '../../maps/data/mapsTable';
 import { DEFAULT_VIEWPORT_SIZE } from '../../maps/mapConstants';
 import { OBJ_ROLE_001 } from '../../objects/data/objectsTable';
 import { ObjectView } from '../../objects/shared/ObjectView';
-import { debugConfig } from '../../objects/objectsConstants';
+import { debugConfig } from '../../devVersion';
 import { ControlRing } from '../controls/ControlRing';
 import type { HitTestTargets, MapEntityType } from './useMapContent';
 

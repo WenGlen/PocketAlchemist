@@ -6,7 +6,8 @@
 import { useMemo } from 'react';
 import type { MonsterDef } from '../data/objectsTable';
 import { ObjectView } from '../shared/ObjectView';
-import { ISO_VISUAL, OPACITY, MONSTER_STUN_RECOVER_DURATION, debugConfig } from '../objectsConstants';
+import { ISO_VISUAL, OPACITY, MONSTER_STUN_RECOVER_DURATION } from '../objectsConstants';
+import { debugConfig } from '../../devVersion';
 
 // ========== Props ==========
 

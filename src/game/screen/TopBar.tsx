@@ -6,7 +6,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import type { QuestEntry } from '../../quests/data/questList';
-import { APP_VERSION } from '../version';
+import { APP_VERSION } from '../../devVersion';
 import { useAudioMute } from '../../assets/audio';
 import { getQuest, isQuestUnlocked } from '../../quests/data/questData';
 import { getMap } from '../../maps/data/mapsTable';
