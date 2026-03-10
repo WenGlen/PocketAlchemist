@@ -4,6 +4,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom';
 const NAV_ITEMS = [
   { to: '/admin', label: '任務總覽', icon: '📋', end: true },
   { to: '/admin/maps', label: '地圖任務綁定', icon: '🗺️', end: false },
+  { to: '/admin/sync', label: '同步到 Sheet', icon: '📤', end: false },
 ];
 
 function NavItem({

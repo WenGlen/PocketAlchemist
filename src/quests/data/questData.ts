@@ -617,10 +617,10 @@ export function getQuestGiverNpcId(quest: QuestDef): string | undefined {
 
 // 取得指定 NPC 在指定地圖上可發放的任務列表
 // 條件：1. 任務的 start.entityId === npcId
-//       2. 任務對應的地圖 === mapId（透過 missionList 查詢）
+//       2. 任務對應的地圖 === mapId（透過 questList 查詢）
 //       3. 任務尚未完成
 //       4. 前置任務已完成（或無前置）
-import { missionList } from './missionList';
+import { questList } from './questList';
 
 export function getAvailableQuestsForNpc(
   npcId: string,
@@ -628,9 +628,9 @@ export function getAvailableQuestsForNpc(
   completedQuestIds: string[]
 ): QuestDef[] {
   // 取得該地圖的所有任務 ID
-  const questIdsInMap = missionList
-    .filter((m) => m.mapId === mapId)
-    .map((m) => m.questId);
+  const questIdsInMap = questList
+    .filter((q) => q.mapId === mapId)
+    .map((q) => q.questId);
 
   const available: QuestDef[] = [];
 
@@ -659,9 +659,9 @@ export function getAvailableQuestsForMap(
   mapId: string,
   completedQuestIds: string[]
 ): QuestDef[] {
-  const questIdsInMap = missionList
-    .filter((m) => m.mapId === mapId)
-    .map((m) => m.questId);
+  const questIdsInMap = questList
+    .filter((q) => q.mapId === mapId)
+    .map((q) => q.questId);
 
   const available: QuestDef[] = [];
 
@@ -684,15 +684,15 @@ export function getNextQuest(
   completedQuestIds: string[]
 ): QuestDef | null {
   // 取得該地圖的任務，按 chainOrder 排序
-  const missionsInMap = missionList
-    .filter((m) => m.mapId === mapId)
+  const questsInMap = questList
+    .filter((q) => q.mapId === mapId)
     .sort((a, b) => (a.chainOrder ?? 0) - (b.chainOrder ?? 0));
 
-  for (const mission of missionsInMap) {
-    const quest = questTable[mission.questId];
+  for (const entry of questsInMap) {
+    const quest = questTable[entry.questId];
     if (!quest) continue;
     // 已完成的跳過
-    if (completedQuestIds.includes(mission.questId)) continue;
+    if (completedQuestIds.includes(entry.questId)) continue;
     // 前置任務未完成的跳過
     if (!isQuestUnlocked(quest, completedQuestIds)) continue;
     // 找到第一個可接的任務

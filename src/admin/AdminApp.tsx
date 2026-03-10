@@ -6,6 +6,7 @@ import { QuestDetailPage } from './pages/QuestDetailPage';
 import { StepsPage } from './pages/StepsPage';
 import { StepEditorPage } from './pages/StepEditorPage';
 import { MapsPage } from './pages/MapsPage';
+import { SyncPage } from './pages/SyncPage';
 
 export function AdminApp() {
   return (
@@ -17,6 +18,7 @@ export function AdminApp() {
         <Route path="quest/:questId/steps" element={<StepsPage />} />
         <Route path="quest/:questId/step/:idx" element={<StepEditorPage />} />
         <Route path="maps" element={<MapsPage />} />
+        <Route path="sync" element={<SyncPage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>

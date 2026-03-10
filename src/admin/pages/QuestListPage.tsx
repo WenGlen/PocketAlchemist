@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { questTable } from '../../quests/data/questData';
-import { missionList } from '../../quests/data/missionList';
+import { questList } from '../../quests/data/questList';
 import { getAcceptModeStyle } from '../adminConstants';
 import { CodePreviewModal } from '../components/CodePreviewModal';
 
 function getMapName(questId: string): string {
-  const entry = missionList.find((m) => m.questId === questId);
+  const entry = questList.find((q) => q.questId === questId);
   if (!entry) return '—';
   const MAP_NAMES: Record<string, string> = {
     'MAP-field-001': '野外初生地',

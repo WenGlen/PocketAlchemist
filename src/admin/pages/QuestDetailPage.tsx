@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { questTable } from '../../quests/data/questData';
-import { missionList } from '../../quests/data/missionList';
+import { questList } from '../../quests/data/questList';
 import { ACCEPT_MODE_OPTIONS, MAP_OPTIONS, getAcceptModeStyle } from '../adminConstants';
 import { StepsTabContent } from '../components/StepsTabContent';
 
 type Tab = 'basic' | 'notes' | 'steps';
 
 function getMapId(questId: string): string {
-  return missionList.find((m) => m.questId === questId)?.mapId ?? '';
+  return questList.find((q) => q.questId === questId)?.mapId ?? '';
 }
 
 export function QuestDetailPage() {

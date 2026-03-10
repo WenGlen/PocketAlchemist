@@ -5,7 +5,7 @@
 // MVP-02-4：改為地圖選擇模式（任務由 NPC 對話承接）
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import type { MissionEntry } from '../../quests/data/missionList';
+import type { QuestEntry } from '../../quests/data/questList';
 import { APP_VERSION } from '../version';
 import { useAudioMute } from '../../assets/audio';
 import { getQuest, isQuestUnlocked } from '../../quests/data/questData';
@@ -17,7 +17,7 @@ import { getItem } from '../../items/data/itemsTable';
 interface TopBarProps {
   currentMapId: string;
   currentQuestId: string | null;
-  missions: MissionEntry[];
+  quests: QuestEntry[];
   completedQuestIds: string[];
   onEnterMap: (mapId: string) => void;
   onSelectMission: (mapId: string, questId: string) => void;  // 開發測試用（會重置一切）
@@ -27,7 +27,7 @@ interface TopBarProps {
 export function TopBar({
   currentMapId,
   currentQuestId,
-  missions,
+  quests,
   completedQuestIds,
   onEnterMap,
   onSelectMission,
@@ -44,13 +44,13 @@ export function TopBar({
 
   // 依 mapId 分組
   const mapGroups = useMemo(() => {
-    const groups: Record<string, MissionEntry[]> = {};
-    for (const m of missions) {
-      if (!groups[m.mapId]) groups[m.mapId] = [];
-      groups[m.mapId].push(m);
+    const groups: Record<string, QuestEntry[]> = {};
+    for (const q of quests) {
+      if (!groups[q.mapId]) groups[q.mapId] = [];
+      groups[q.mapId].push(q);
     }
     return groups;
-  }, [missions]);
+  }, [quests]);
 
   const mapIds = useMemo(() => Object.keys(mapGroups), [mapGroups]);
 
@@ -72,8 +72,8 @@ export function TopBar({
     setMenuOpen(false);
   };
 
-  const handleSelectMission = (m: MissionEntry) => {
-    onSelectMission(m.mapId, m.questId);
+  const handleSelectQuest = (q: QuestEntry) => {
+    onSelectMission(q.mapId, q.questId);
     setDevMenuOpen(false);
   };
 
@@ -210,15 +210,15 @@ export function TopBar({
               <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
                 🔧 開發模式：選任務
               </div>
-              {missions.map((m) => {
-                const isCurrent = m.mapId === currentMapId && m.questId === currentQuestId;
-                const quest = getQuest(m.questId);
+              {quests.map((q) => {
+                const isCurrent = q.mapId === currentMapId && q.questId === currentQuestId;
+                const quest = getQuest(q.questId);
                 const locked = quest ? !isQuestUnlocked(quest, completedQuestIds) : false;
-                const isCompleted = completedQuestIds.includes(m.questId);
-                const mapName = getMap(m.mapId)?.name ?? m.mapId;
+                const isCompleted = completedQuestIds.includes(q.questId);
+                const mapName = getMap(q.mapId)?.name ?? q.mapId;
                 return (
                   <button
-                    key={m.questId}
+                    key={q.questId}
                     type="button"
                     role="menuitem"
                     disabled={locked}
@@ -228,13 +228,13 @@ export function TopBar({
                         ? 'text-[var(--color-text-muted)] cursor-not-allowed opacity-50'
                         : 'text-[var(--color-text-default)] hover:bg-[var(--color-panel-muted)]',
                     ].join(' ')}
-                    onClick={() => !locked && handleSelectMission(m)}
+                    onClick={() => !locked && handleSelectQuest(q)}
                   >
                     <span className="flex items-center gap-1.5">
                       {locked && <span aria-label="未解鎖">🔒</span>}
                       {isCompleted && !locked && <span aria-label="已完成" className="text-[var(--color-primary)]">✓</span>}
                       <span className="text-[10px] text-[var(--color-text-muted)]">[{mapName}]</span>
-                      {m.name}
+                      {q.name}
                     </span>
                     {isCurrent && !locked && (
                       <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">（重新開始）</span>

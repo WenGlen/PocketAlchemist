@@ -29,7 +29,7 @@ import { interactionConfig } from './interactionConfig';
 import { PLACE_FEEDBACK_MS, CRAFT_CLEAR_DELAY_MS } from '../objects/objectsConstants';
 import { BACKPACK_CAPACITY } from '../items/inventoryConstants';
 import { getDisplayStats } from './screen/statsConfig';
-import { missionList } from '../quests/data/missionList';
+import { questList } from '../quests/data/questList';
 
 // ========== 技能面板定義 ==========
 // 對應裝備 skill 欄位，定義面板 ID、按鈕標籤、展開高度
@@ -523,7 +523,7 @@ export function GameScreen() {
         <TopBar
           currentMapId={game.mapId}
           currentQuestId={game.selectedQuestId}
-          missions={missionList}
+          quests={questList}
           completedQuestIds={game.completedQuestIds}
           onEnterMap={game.enterMap}
           onSelectMission={game.selectMission}

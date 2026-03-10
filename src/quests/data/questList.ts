@@ -2,14 +2,14 @@
 // 可選任務列表（選單用）
 //════════════════════════════════════════════════════════════════
 
-export interface MissionEntry {
+export interface QuestEntry {
   mapId: string;
   questId: string;
   name: string;
   chainOrder?: number;  // 串鏈排序：同地圖同鏈內的顯示順序，未設視為 0
 }
 
-export const missionList: MissionEntry[] = [
+export const questList: QuestEntry[] = [
   // ── MAP-field-001 ──────────────────────────────────────────────
   { mapId: 'MAP-field-001', questId: 'QST-main-001', name: '要喝茶', chainOrder: 1 },
   { mapId: 'MAP-field-001', questId: 'QST-main-002', name: '實驗室訂單', chainOrder: 2 },
@@ -30,6 +30,6 @@ export const missionList: MissionEntry[] = [
   { mapId: 'MAP-shimmer-001', questId: 'QST-main-011', name: '核心共鳴提取', chainOrder: 6 },
 ];
 
-export function getMissionByMapId(mapId: string): MissionEntry | undefined {
-  return missionList.find((m) => m.mapId === mapId);
+export function getQuestByMapId(mapId: string): QuestEntry | undefined {
+  return questList.find((q) => q.mapId === mapId);
 }

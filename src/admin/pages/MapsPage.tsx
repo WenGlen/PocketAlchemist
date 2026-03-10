@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { missionList } from '../../quests/data/missionList';
-import type { MissionEntry } from '../../quests/data/missionList';
+import { questList } from '../../quests/data/questList';
+import type { QuestEntry } from '../../quests/data/questList';
 import { questTable } from '../../quests/data/questData';
 import { MAP_OPTIONS, getAcceptModeStyle } from '../adminConstants';
 import { Link } from 'react-router-dom';
 
 export function MapsPage() {
-  const [entries, setEntries] = useState<MissionEntry[]>([...missionList]);
+  const [entries, setEntries] = useState<QuestEntry[]>([...questList]);
   const [addMapId, setAddMapId] = useState('');
   const [addQuestId, setAddQuestId] = useState('');
   const [addChainOrder, setAddChainOrder] = useState(1);
@@ -55,7 +55,7 @@ export function MapsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">地圖任務綁定</h1>
           <p className="mt-1 text-sm text-gray-500">
-            管理 missionList.ts — 定義每個地圖包含哪些任務及其推進順序
+            管理 questList.ts — 定義每個地圖包含哪些任務及其推進順序
           </p>
         </div>
         <button
