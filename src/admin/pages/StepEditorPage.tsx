@@ -1,18 +1,61 @@
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { questTable } from '../../quests/data/questData';
+import type { QuestStep } from '../../quests/data/questData';
+import { saveQuestToSheet } from '../../core/config/dataSource';
 import { getStepTypeStyle } from '../adminConstants';
 import type { StepType } from '../adminConstants';
 import { StartStepEditor } from '../components/steps/StartStepEditor';
+import type { StartStepEditorHandle } from '../components/steps/StartStepEditor';
 import { ReceiveFromStepEditor } from '../components/steps/ReceiveFromStepEditor';
+import type { ReceiveFromStepEditorHandle } from '../components/steps/ReceiveFromStepEditor';
 import { DeliverToStepEditor } from '../components/steps/DeliverToStepEditor';
+import type { DeliverToStepEditorHandle } from '../components/steps/DeliverToStepEditor';
 import { InteractWithStepEditor } from '../components/steps/InteractWithStepEditor';
+import type { InteractWithStepEditorHandle } from '../components/steps/InteractWithStepEditor';
 import { CompleteStepEditor } from '../components/steps/CompleteStepEditor';
+import type { CompleteStepEditorHandle } from '../components/steps/CompleteStepEditor';
+
+// 統一的 editor handle 型別
+type AnyStepEditorHandle =
+  | StartStepEditorHandle
+  | ReceiveFromStepEditorHandle
+  | DeliverToStepEditorHandle
+  | InteractWithStepEditorHandle
+  | CompleteStepEditorHandle;
 
 export function StepEditorPage() {
   const { questId, idx } = useParams<{ questId: string; idx: string }>();
   const quest = questId ? questTable[questId] : undefined;
   const stepIndex = idx !== undefined ? Number(idx) : -1;
   const step = quest?.steps?.[stepIndex];
+
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const editorRef = useRef<AnyStepEditorHandle>(null);
+
+  const handleSave = async () => {
+    if (!editorRef.current || !quest) return;
+    setSaving(true);
+    setSaved(false);
+    setSaveError(null);
+    try {
+      const newStep = editorRef.current.getStep();
+      const updatedSteps = quest.steps.map((s, i) =>
+        i === stepIndex ? newStep : s
+      );
+      const updatedQuest = { ...quest, steps: updatedSteps };
+      await saveQuestToSheet(updatedQuest);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : '儲存失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!quest || !step || stepIndex < 0) {
     return (
@@ -28,7 +71,6 @@ export function StepEditorPage() {
   }
 
   const stepType = step.type as StepType;
-
   const prevIdx = stepIndex > 0 ? stepIndex - 1 : null;
   const nextIdx = stepIndex < quest.steps.length - 1 ? stepIndex + 1 : null;
 
@@ -59,29 +101,32 @@ export function StepEditorPage() {
 
           <div className="flex items-center gap-2">
             {prevIdx !== null && (
-              <Link
-                to={`/admin/quest/${quest.id}/step/${prevIdx}`}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
+              <Link to={`/admin/quest/${quest.id}/step/${prevIdx}`} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 ← 上一步
               </Link>
             )}
             {nextIdx !== null && (
-              <Link
-                to={`/admin/quest/${quest.id}/step/${nextIdx}`}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
+              <Link to={`/admin/quest/${quest.id}/step/${nextIdx}`} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 下一步 →
               </Link>
             )}
             <button
               type="button"
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
             >
-              儲存
+              {saving ? '儲存中…' : saved ? '✓ 已儲存' : '儲存到 Sheet'}
             </button>
           </div>
         </div>
+
+        {/* 儲存錯誤提示 */}
+        {saveError && (
+          <div className="mt-2 rounded-md bg-red-50 px-4 py-2 text-sm text-red-600">
+            ✕ {saveError}
+          </div>
+        )}
       </div>
 
       {/* Step nav pills */}
@@ -104,11 +149,41 @@ export function StepEditorPage() {
 
       {/* Editor */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        {stepType === 'start' && <StartStepEditor />}
-        {stepType === 'receive_from' && <ReceiveFromStepEditor />}
-        {stepType === 'deliver_to' && <DeliverToStepEditor />}
-        {stepType === 'interact_with' && <InteractWithStepEditor />}
-        {stepType === 'complete' && <CompleteStepEditor />}
+        {stepType === 'start' && (
+          <StartStepEditor
+            key={stepIndex}
+            ref={editorRef as React.Ref<StartStepEditorHandle>}
+            initialStep={step as Extract<QuestStep, { type: 'start' }>}
+          />
+        )}
+        {stepType === 'receive_from' && (
+          <ReceiveFromStepEditor
+            key={stepIndex}
+            ref={editorRef as React.Ref<ReceiveFromStepEditorHandle>}
+            initialStep={step as Extract<QuestStep, { type: 'receive_from' }>}
+          />
+        )}
+        {stepType === 'deliver_to' && (
+          <DeliverToStepEditor
+            key={stepIndex}
+            ref={editorRef as React.Ref<DeliverToStepEditorHandle>}
+            initialStep={step as Extract<QuestStep, { type: 'deliver_to' }>}
+          />
+        )}
+        {stepType === 'interact_with' && (
+          <InteractWithStepEditor
+            key={stepIndex}
+            ref={editorRef as React.Ref<InteractWithStepEditorHandle>}
+            initialStep={step as Extract<QuestStep, { type: 'interact_with' }>}
+          />
+        )}
+        {stepType === 'complete' && (
+          <CompleteStepEditor
+            key={stepIndex}
+            ref={editorRef as React.Ref<CompleteStepEditorHandle>}
+            initialStep={step as Extract<QuestStep, { type: 'complete' }>}
+          />
+        )}
       </div>
     </div>
   );

@@ -18,12 +18,32 @@ export const USE_LOCAL_DATA: boolean = debugConfig.useLocalData;
 
 // ========== 從 API 讀取（useLocalData = false 時使用）==========
 
+/**
+ * 將 Sheet 讀回的任務資料做型別正規化
+ * - 空字串欄位（prerequisiteQuestId、npcPositionOverrides 等）還原為 undefined
+ * - 確保讀回結果與本地 QuestDef 型別完全一致
+ */
+function normalizeQuest(raw: QuestDef): QuestDef {
+  return {
+    ...raw,
+    prerequisiteQuestId: raw.prerequisiteQuestId || undefined,
+    acceptMode: raw.acceptMode || undefined,
+    npcPositionOverrides: raw.npcPositionOverrides && typeof raw.npcPositionOverrides === 'object'
+      ? raw.npcPositionOverrides
+      : undefined,
+    description: raw.description || undefined,
+    storyNote: raw.storyNote || undefined,
+    blockingNote: raw.blockingNote || undefined,
+    designNote: raw.designNote || undefined,
+  };
+}
+
 /** 從 API 取得所有任務定義，回傳格式與 questTable 一致 */
 export async function fetchQuestTable(): Promise<Record<string, QuestDef>> {
   const res = await fetch(`${API_BASE_URL}/api/quests`);
   if (!res.ok) throw new Error(`fetchQuestTable 失敗：${res.status}`);
   const rows: QuestDef[] = await res.json();
-  return Object.fromEntries(rows.map((q) => [q.id, q]));
+  return Object.fromEntries(rows.map((q) => [q.id, normalizeQuest(q)]));
 }
 
 /** 從 API 取得地圖任務綁定，回傳格式與 questList 一致 */
@@ -45,4 +65,19 @@ export async function getQuestTable(): Promise<Record<string, QuestDef>> {
 export async function getQuestList(): Promise<QuestEntry[]> {
   if (USE_LOCAL_DATA) return localQuestList;
   return fetchQuestList();
+}
+
+// ========== 寫入（後台編輯器使用）==========
+
+/** 將單筆任務定義寫回 Google Sheet（PUT /api/quests/:questId） */
+export async function saveQuestToSheet(quest: QuestDef): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/quests/${quest.id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(quest),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `saveQuestToSheet 失敗：${res.status}`);
+  }
 }

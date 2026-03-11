@@ -1,9 +1,27 @@
 import { EntitySelect } from './EntitySelect';
+import type { NpcPositionOverride } from '../../quests/data/questData';
 
 export interface NpcOverride {
   npcId: string;
   x: number;
   y: number;
+}
+
+/** Record → 陣列（UI 編輯用，讀取時使用） */
+export function recordToOverrideArray(
+  record?: Record<string, NpcPositionOverride>
+): NpcOverride[] {
+  if (!record) return [];
+  return Object.entries(record).map(([npcId, pos]) => ({ npcId, x: pos.x, y: pos.y }));
+}
+
+/** 陣列 → Record（儲存時使用） */
+export function arrayToOverrideRecord(
+  arr: NpcOverride[]
+): Record<string, NpcPositionOverride> | undefined {
+  const valid = arr.filter((o) => o.npcId.trim() !== '');
+  if (valid.length === 0) return undefined;
+  return Object.fromEntries(valid.map((o) => [o.npcId, { x: o.x, y: o.y }]));
 }
 
 interface Props {

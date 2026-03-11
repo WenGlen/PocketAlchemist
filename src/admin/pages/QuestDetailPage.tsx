@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { questTable } from '../../quests/data/questData';
+import type { QuestDef, AcceptMode } from '../../quests/data/questData';
 import { questList } from '../../quests/data/questList';
 import { ACCEPT_MODE_OPTIONS, MAP_OPTIONS, getAcceptModeStyle } from '../adminConstants';
 import { StepsTabContent } from '../components/StepsTabContent';
+import type { StepsTabContentHandle } from '../components/StepsTabContent';
+import { NpcOverrideEditor, recordToOverrideArray, arrayToOverrideRecord } from '../components/NpcOverrideEditor';
+import type { NpcOverride } from '../components/NpcOverrideEditor';
+import { saveQuestToSheet } from '../../core/config/dataSource';
 
 type Tab = 'basic' | 'notes' | 'steps';
 
@@ -23,16 +28,62 @@ export function QuestDetailPage() {
   const [acceptMode, setAcceptMode] = useState(quest?.acceptMode ?? 'auto');
   const [prerequisiteQuestId, setPrerequisiteQuestId] = useState(quest?.prerequisiteQuestId ?? '');
 
+  // Task-level NPC overrides state
+  const [questNpcOverrides, setQuestNpcOverrides] = useState<NpcOverride[]>(() =>
+    recordToOverrideArray(quest?.npcPositionOverrides)
+  );
+  const [questNpcOverrideOpen, setQuestNpcOverrideOpen] = useState(false);
+
   // Notes tab state
   const [storyNote, setStoryNote] = useState(quest?.storyNote ?? '');
   const [blockingNote, setBlockingNote] = useState(quest?.blockingNote ?? '');
   const [designNote, setDesignNote] = useState(quest?.designNote ?? '');
 
-  const [saved, setSaved] = useState(false);
+  const stepsRef = useRef<StepsTabContentHandle>(null);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const buildUpdatedQuest = (): QuestDef => ({
+    ...quest!,
+    name,
+    description: description || undefined,
+    acceptMode: (acceptMode as AcceptMode) || undefined,
+    prerequisiteQuestId: prerequisiteQuestId || undefined,
+    npcPositionOverrides: arrayToOverrideRecord(questNpcOverrides),
+    steps: stepsRef.current?.getSteps() ?? quest!.steps,
+    storyNote: storyNote || undefined,
+    blockingNote: blockingNote || undefined,
+    designNote: designNote || undefined,
+  });
+
+  const handleSave = async () => {
+    if (!quest) return;
+    setSaving(true);
+    setSaved(false);
+    setSaveError(null);
+    try {
+      await saveQuestToSheet(buildUpdatedQuest());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : '儲存失敗');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExportJson = () => {
+    if (!quest) return;
+    const json = JSON.stringify(buildUpdatedQuest(), null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${quest.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!quest) {
@@ -83,36 +134,50 @@ export function QuestDetailPage() {
           </div>
         </div>
 
-        {/* 分頁按鈕 ＋ 儲存（手機版換行到第二排） */}
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-            {TABS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  tab === key
-                    ? 'bg-white text-indigo-700 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {label}
-                {key === 'steps' && (
-                  <span className="ml-1.5 rounded-full bg-gray-200 px-1.5 text-xs text-gray-500">
-                    {quest.steps.length}
-                  </span>
-                )}
-              </button>
-            ))}
+        {/* 分頁按鈕 ＋ 操作（手機版換行到第二排） */}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+              {TABS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTab(key)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    tab === key
+                      ? 'bg-white text-indigo-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                  {key === 'steps' && (
+                    <span className="ml-1.5 rounded-full bg-gray-200 px-1.5 text-xs text-gray-500">
+                      {quest.steps.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={handleExportJson}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              title="匯出此任務的 JSON"
+            >
+              JSON
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {saving ? '儲存中…' : saved ? '✓ 已儲存' : '儲存到 Sheet'}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-          >
-            {saved ? '✓ 已儲存' : '儲存'}
-          </button>
+          {saveError && (
+            <p className="text-xs text-red-500">✕ {saveError}</p>
+          )}
         </div>
       </div>
 
@@ -234,13 +299,41 @@ export function QuestDetailPage() {
                 ))}
               </select>
             </div>
+
+            {/* 任務層級 NPC 位置覆蓋 */}
+            <div className="rounded-md border border-gray-200 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setQuestNpcOverrideOpen((o) => !o)}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <span>
+                  任務層級 NPC 位置覆蓋
+                  <span className="ml-1 font-normal text-gray-400 text-xs">npcPositionOverrides</span>
+                  {questNpcOverrides.length > 0 && (
+                    <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-600">
+                      {questNpcOverrides.length}
+                    </span>
+                  )}
+                </span>
+                <span className="text-gray-400">{questNpcOverrideOpen ? '▲' : '▼'}</span>
+              </button>
+              {questNpcOverrideOpen && (
+                <div className="border-t border-gray-200 px-4 pb-4 pt-3 space-y-2">
+                  <p className="text-xs text-gray-400">
+                    整個任務進行期間 NPC 的固定位置，優先度低於步驟層級覆蓋。適用於任務初始佈置。
+                  </p>
+                  <NpcOverrideEditor value={questNpcOverrides} onChange={setQuestNpcOverrides} />
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Steps tab */}
-        {tab === 'steps' && (
-          <StepsTabContent questId={quest.id} initialSteps={quest.steps} />
-        )}
+        {/* Steps tab — 始終 mount，用 hidden 隱藏，避免切換分頁時遺失 editor 狀態 */}
+        <div className={tab === 'steps' ? '' : 'hidden'}>
+          <StepsTabContent ref={stepsRef} initialSteps={quest.steps} />
+        </div>
 
         {/* Notes tab */}
         {tab === 'notes' && (

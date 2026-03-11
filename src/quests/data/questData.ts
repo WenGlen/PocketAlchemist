@@ -37,6 +37,11 @@ interface StepBase {
    * - StepCompleteAction: 詳細控制（對話框行為 + NPC 狀態變化）
    */
   onStepComplete?: 'close' | 'continue' | StepCompleteAction;
+  /**
+   * 步驟層級的 NPC 位置覆蓋（僅此步驟有效，優先度高於 QuestDef 頂層的 npcPositionOverrides）
+   * 主要用於事件中角色臨時移動，步驟結束後自動還原
+   */
+  npcPositionOverrides?: Record<string, NpcPositionOverride>;
 }
 
 // 單一步驟型別

@@ -1,4 +1,5 @@
 import { EntitySelect } from './EntitySelect';
+import type { StepCompleteAction } from '../../quests/data/questData';
 
 export type StepCompleteMode = 'close' | 'continue' | 'advanced';
 
@@ -7,6 +8,54 @@ export interface StepCompleteState {
   dialogue: 'close' | 'continue';
   hideNpc: string[];
   showNpc: string[];
+}
+
+export const DEFAULT_COMPLETE: StepCompleteState = {
+  mode: 'close',
+  dialogue: 'close',
+  hideNpc: [],
+  showNpc: [],
+};
+
+/** StepCompleteState → onStepComplete（儲存時使用） */
+export function buildOnStepComplete(
+  state: StepCompleteState
+): 'close' | 'continue' | StepCompleteAction | undefined {
+  if (state.mode === 'close') return undefined;
+  if (state.mode === 'continue') return 'continue';
+  // advanced
+  const action: StepCompleteAction = {};
+  if (state.dialogue !== 'close') action.dialogue = state.dialogue;
+  if (state.hideNpc.length > 0) {
+    action.hideNpc = state.hideNpc.length === 1 ? state.hideNpc[0] : state.hideNpc;
+  }
+  if (state.showNpc.length > 0) {
+    action.showNpc = state.showNpc.length === 1 ? state.showNpc[0] : state.showNpc;
+  }
+  const isEmpty = !action.dialogue && !action.hideNpc && !action.showNpc;
+  return isEmpty ? undefined : action;
+}
+
+/** onStepComplete → StepCompleteState（讀取時使用） */
+export function parseOnStepComplete(
+  value?: 'close' | 'continue' | StepCompleteAction
+): StepCompleteState {
+  if (!value || value === 'close') return DEFAULT_COMPLETE;
+  if (value === 'continue') return { mode: 'continue', dialogue: 'continue', hideNpc: [], showNpc: [] };
+  const hideNpc = value.hideNpc
+    ? Array.isArray(value.hideNpc) ? value.hideNpc : [value.hideNpc]
+    : [];
+  const showNpc = value.showNpc
+    ? Array.isArray(value.showNpc) ? value.showNpc : [value.showNpc]
+    : [];
+  const dialogue = value.dialogue ?? 'close';
+  const hasAdvanced = hideNpc.length > 0 || showNpc.length > 0;
+  return {
+    mode: hasAdvanced ? 'advanced' : (dialogue === 'continue' ? 'continue' : 'close'),
+    dialogue,
+    hideNpc,
+    showNpc,
+  };
 }
 
 interface Props {

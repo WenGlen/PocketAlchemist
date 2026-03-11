@@ -5,7 +5,7 @@
 
 // ========== 版本號 ==========
 
-export const APP_VERSION = 'MVP-02-10.01';
+export const APP_VERSION = 'MVP-02-11.00';
 
 // ========== 開發調試設定 ==========
 

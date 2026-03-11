@@ -76,8 +76,7 @@ export function QuestListPage() {
               <th className="px-4 py-3">步驟數</th>
               <th className="px-4 py-3">承接方式</th>
               <th className="px-4 py-3">前置任務</th>
-              <th className="px-4 py-3">備註</th>
-              <th className="px-4 py-3"></th>
+              <th className="w-32 px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -104,31 +103,12 @@ export function QuestListPage() {
                 <td className="px-4 py-3 font-mono text-xs text-gray-500">
                   {quest.prerequisiteQuestId ?? '—'}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex gap-1.5">
-                    {quest.storyNote && (
-                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700" title={quest.storyNote}>
-                        劇情
-                      </span>
-                    )}
-                    {quest.designNote && (
-                      <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700" title={quest.designNote}>
-                        設計
-                      </span>
-                    )}
-                    {quest.blockingNote && (
-                      <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700" title={quest.blockingNote}>
-                        阻擋
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-right">
+                <td className="w-32 px-4 py-3 text-right">
                   <Link
                     to={`/admin/quest/${quest.id}`}
-                    className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    className="inline-block whitespace-nowrap rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    編輯
+                    查看&amp;編輯
                   </Link>
                 </td>
               </tr>
