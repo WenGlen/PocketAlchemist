@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { questTable } from '../../quests/data/questData';
 import type { QuestStep } from '../../quests/data/questData';
 import { saveQuestToSheet } from '../../core/config/dataSource';
+import { useQuestTable } from '../hooks/useQuestTable';
 import { getStepTypeStyle } from '../adminConstants';
 import type { StepType } from '../adminConstants';
 import { StartStepEditor } from '../components/steps/StartStepEditor';
@@ -26,7 +26,8 @@ type AnyStepEditorHandle =
 
 export function StepEditorPage() {
   const { questId, idx } = useParams<{ questId: string; idx: string }>();
-  const quest = questId ? questTable[questId] : undefined;
+  const { questTable, loading, error } = useQuestTable();
+  const quest = questId && questTable ? questTable[questId] : undefined;
   const stepIndex = idx !== undefined ? Number(idx) : -1;
   const step = quest?.steps?.[stepIndex];
 
@@ -56,6 +57,22 @@ export function StepEditorPage() {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-sm text-gray-400">
+        載入任務資料中…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-sm font-medium text-red-500">載入失敗：{error}</p>
+      </div>
+    );
+  }
 
   if (!quest || !step || stepIndex < 0) {
     return (

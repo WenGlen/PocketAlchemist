@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { questTable } from '../../quests/data/questData';
 import type { QuestDef, AcceptMode } from '../../quests/data/questData';
 import { questList } from '../../quests/data/questList';
 import { ACCEPT_MODE_OPTIONS, MAP_OPTIONS, getAcceptModeStyle } from '../adminConstants';
@@ -9,6 +8,7 @@ import type { StepsTabContentHandle } from '../components/StepsTabContent';
 import { NpcOverrideEditor, recordToOverrideArray, arrayToOverrideRecord } from '../components/NpcOverrideEditor';
 import type { NpcOverride } from '../components/NpcOverrideEditor';
 import { saveQuestToSheet } from '../../core/config/dataSource';
+import { useQuestTable } from '../hooks/useQuestTable';
 
 type Tab = 'basic' | 'notes' | 'steps';
 
@@ -16,28 +16,32 @@ function getMapId(questId: string): string {
   return questList.find((q) => q.questId === questId)?.mapId ?? '';
 }
 
-export function QuestDetailPage() {
-  const { questId } = useParams<{ questId: string }>();
-  const quest = questId ? questTable[questId] : undefined;
+// ─── 內層 Form（只在資料載入完成後 mount，確保 useState 初始值正確）────────────
 
+interface QuestDetailFormProps {
+  quest: QuestDef;
+  allQuests: Record<string, QuestDef>;
+}
+
+function QuestDetailForm({ quest, allQuests }: QuestDetailFormProps) {
   const [tab, setTab] = useState<Tab>('basic');
 
   // Basic tab state
-  const [name, setName] = useState(quest?.name ?? '');
-  const [description, setDescription] = useState(quest?.description ?? '');
-  const [acceptMode, setAcceptMode] = useState(quest?.acceptMode ?? 'auto');
-  const [prerequisiteQuestId, setPrerequisiteQuestId] = useState(quest?.prerequisiteQuestId ?? '');
+  const [name, setName] = useState(quest.name);
+  const [description, setDescription] = useState(quest.description ?? '');
+  const [acceptMode, setAcceptMode] = useState(quest.acceptMode ?? 'auto');
+  const [prerequisiteQuestId, setPrerequisiteQuestId] = useState(quest.prerequisiteQuestId ?? '');
 
   // Task-level NPC overrides state
   const [questNpcOverrides, setQuestNpcOverrides] = useState<NpcOverride[]>(() =>
-    recordToOverrideArray(quest?.npcPositionOverrides)
+    recordToOverrideArray(quest.npcPositionOverrides)
   );
   const [questNpcOverrideOpen, setQuestNpcOverrideOpen] = useState(false);
 
   // Notes tab state
-  const [storyNote, setStoryNote] = useState(quest?.storyNote ?? '');
-  const [blockingNote, setBlockingNote] = useState(quest?.blockingNote ?? '');
-  const [designNote, setDesignNote] = useState(quest?.designNote ?? '');
+  const [storyNote, setStoryNote] = useState(quest.storyNote ?? '');
+  const [blockingNote, setBlockingNote] = useState(quest.blockingNote ?? '');
+  const [designNote, setDesignNote] = useState(quest.designNote ?? '');
 
   const stepsRef = useRef<StepsTabContentHandle>(null);
 
@@ -46,20 +50,19 @@ export function QuestDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const buildUpdatedQuest = (): QuestDef => ({
-    ...quest!,
+    ...quest,
     name,
     description: description || undefined,
     acceptMode: (acceptMode as AcceptMode) || undefined,
     prerequisiteQuestId: prerequisiteQuestId || undefined,
     npcPositionOverrides: arrayToOverrideRecord(questNpcOverrides),
-    steps: stepsRef.current?.getSteps() ?? quest!.steps,
+    steps: stepsRef.current?.getSteps() ?? quest.steps,
     storyNote: storyNote || undefined,
     blockingNote: blockingNote || undefined,
     designNote: designNote || undefined,
   });
 
   const handleSave = async () => {
-    if (!quest) return;
     setSaving(true);
     setSaved(false);
     setSaveError(null);
@@ -75,7 +78,6 @@ export function QuestDetailPage() {
   };
 
   const handleExportJson = () => {
-    if (!quest) return;
     const json = JSON.stringify(buildUpdatedQuest(), null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -86,17 +88,6 @@ export function QuestDetailPage() {
     URL.revokeObjectURL(url);
   };
 
-  if (!quest) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-lg font-medium text-gray-500">找不到任務：{questId}</p>
-        <Link to="/admin" className="mt-4 text-sm text-indigo-600 hover:underline">
-          回到任務總覽
-        </Link>
-      </div>
-    );
-  }
-
   const mapId = getMapId(quest.id);
 
   const TABS: { key: Tab; label: string }[] = [
@@ -105,7 +96,7 @@ export function QuestDetailPage() {
     { key: 'notes', label: '備註欄位' },
   ];
 
-  const otherQuests = Object.values(questTable).filter((q) => q.id !== quest.id);
+  const otherQuests = Object.values(allQuests).filter((q) => q.id !== quest.id);
 
   return (
     <div className="space-y-6">
@@ -392,4 +383,46 @@ export function QuestDetailPage() {
       </div>
     </div>
   );
+}
+
+// ─── 外層 Page（處理 loading / 404，確認資料後才 mount QuestDetailForm）────────
+
+export function QuestDetailPage() {
+  const { questId } = useParams<{ questId: string }>();
+  const { questTable, loading, error } = useQuestTable();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-sm text-gray-400">
+        載入任務資料中…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-sm font-medium text-red-500">載入失敗：{error}</p>
+        <Link to="/admin" className="mt-4 text-sm text-indigo-600 hover:underline">
+          回到任務總覽
+        </Link>
+      </div>
+    );
+  }
+
+  const table = questTable ?? {};
+  const quest = questId ? table[questId] : undefined;
+
+  if (!quest) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-lg font-medium text-gray-500">找不到任務：{questId}</p>
+        <Link to="/admin" className="mt-4 text-sm text-indigo-600 hover:underline">
+          回到任務總覽
+        </Link>
+      </div>
+    );
+  }
+
+  return <QuestDetailForm key={questId} quest={quest} allQuests={table} />;
 }

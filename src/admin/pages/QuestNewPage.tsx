@@ -1,14 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MAP_OPTIONS } from '../adminConstants';
-import { questTable } from '../../quests/data/questData';
-
-function checkIdConflict(id: string): boolean {
-  return id in questTable;
-}
+import { useQuestTable } from '../hooks/useQuestTable';
 
 export function QuestNewPage() {
   const navigate = useNavigate();
+  const { questTable } = useQuestTable();
   const [questId, setQuestId] = useState('');
   const [name, setName] = useState('');
   const [mapId, setMapId] = useState('');
@@ -19,7 +16,7 @@ export function QuestNewPage() {
     const e: Record<string, string> = {};
     if (!questId.trim()) e.questId = '必填';
     else if (!/^QST-[a-z]+-\d{3,}$/.test(questId)) e.questId = '格式應為 QST-{類型}-{編號}，如 QST-main-012';
-    else if (checkIdConflict(questId)) e.questId = '此 ID 已存在';
+    else if (questTable && questId in questTable) e.questId = '此 ID 已存在';
     if (!name.trim()) e.name = '必填';
     return e;
   };

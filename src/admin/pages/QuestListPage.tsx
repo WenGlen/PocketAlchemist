@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { questTable } from '../../quests/data/questData';
 import { questList } from '../../quests/data/questList';
 import { getAcceptModeStyle } from '../adminConstants';
 import { CodePreviewModal } from '../components/CodePreviewModal';
+import { useQuestTable } from '../hooks/useQuestTable';
 
 function getMapName(questId: string): string {
   const entry = questList.find((q) => q.questId === questId);
@@ -19,8 +19,27 @@ function getMapName(questId: string): string {
 export function QuestListPage() {
   const [search, setSearch] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
+  const { questTable, loading, error } = useQuestTable();
 
-  const quests = Object.values(questTable).filter(
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-sm text-gray-400">
+        載入任務資料中…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-sm font-medium text-red-500">載入失敗：{error}</p>
+      </div>
+    );
+  }
+
+  const table = questTable ?? {};
+
+  const quests = Object.values(table).filter(
     (q) =>
       q.id.includes(search) ||
       q.name.includes(search) ||
@@ -34,7 +53,7 @@ export function QuestListPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">任務總覽</h1>
           <p className="mt-1 text-sm text-gray-500">
-            共 {Object.keys(questTable).length} 個任務
+            共 {Object.keys(table).length} 個任務
           </p>
         </div>
         <div className="flex items-center gap-3">
