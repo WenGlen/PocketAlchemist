@@ -1,5 +1,7 @@
 import { forwardRef, useImperativeHandle, useState } from 'react';
 import type { QuestStep } from '../../../quests/data/questData';
+import { StepCompleteEditor, DEFAULT_COMPLETE, parseOnStepComplete, buildOnStepComplete } from '../StepCompleteEditor';
+import type { StepCompleteState } from '../StepCompleteEditor';
 
 type CompleteStep = Extract<QuestStep, { type: 'complete' }>;
 
@@ -14,12 +16,19 @@ interface Props {
 export const CompleteStepEditor = forwardRef<CompleteStepEditorHandle, Props>(
   function CompleteStepEditor({ initialStep }, ref) {
     const [completeMessage, setCompleteMessage] = useState(initialStep?.completeMessage ?? '');
+    const [onComplete, setOnComplete] = useState<StepCompleteState>(() =>
+      parseOnStepComplete(initialStep?.onStepComplete)
+    );
 
     useImperativeHandle(ref, () => ({
-      getStep: () => ({
-        type: 'complete',
-        ...(completeMessage && { completeMessage }),
-      }),
+      getStep: () => {
+        const stepComplete = buildOnStepComplete(onComplete);
+        return {
+          type: 'complete',
+          ...(completeMessage && { completeMessage }),
+          ...(stepComplete !== undefined && { onStepComplete: stepComplete }),
+        };
+      },
     }));
 
     return (
@@ -39,20 +48,24 @@ export const CompleteStepEditor = forwardRef<CompleteStepEditorHandle, Props>(
           <p className="mt-1 text-xs text-gray-400">{completeMessage.length} 字 ── 顯示於完成彈窗的 NPC 結語</p>
         </div>
 
+        <StepCompleteEditor value={onComplete} onChange={setOnComplete} npcOnly />
+
         <div className="rounded-md border border-green-100 bg-green-50 p-3">
           <p className="text-xs font-medium text-green-700 mb-2">此步驟完成後自動觸發：</p>
           <ul className="space-y-1 text-xs text-green-700">
             <li className="flex items-center gap-1.5"><span>✓</span> questPhase 變為 'completed'</li>
             <li className="flex items-center gap-1.5"><span>✓</span> 播放成功音效</li>
             <li className="flex items-center gap-1.5"><span>✓</span> 顯示任務完成彈窗</li>
-            <li className="flex items-center gap-1.5"><span>✓</span> 記錄到 completedQuestIds（localStorage）</li>
+            <li className="flex items-center gap-1.5"><span>✓</span> 記錄到 completedQuestIds</li>
           </ul>
         </div>
 
         <div className="rounded-md bg-gray-100 px-4 py-3 text-sm text-gray-500">
-          <strong>complete</strong>：任務的結束步驟，必須是 steps 的最後一個。
+          <strong>complete</strong>：任務的結束步驟，必須是 steps 的最後一個。對話框行為由系統固定控制。
         </div>
       </div>
     );
   }
 );
+
+export { DEFAULT_COMPLETE };

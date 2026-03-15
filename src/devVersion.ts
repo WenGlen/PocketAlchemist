@@ -5,7 +5,7 @@
 
 // ========== 版本號 ==========
 
-export const APP_VERSION = 'MVP-02-11.00';
+export const APP_VERSION = 'MVP-02-12.00';
 
 // ========== 開發調試設定 ==========
 
@@ -16,6 +16,6 @@ export const debugConfig = {
   showHitbox: true,
 
   // 任務資料來源：true = 使用本地 TS 資料；false = 從 Google Sheet 讀取
-  useLocalData: false,
+  useLocalData: true,
 
 };

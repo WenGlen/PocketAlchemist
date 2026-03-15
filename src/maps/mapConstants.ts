@@ -22,5 +22,13 @@ export const PROXIMITY_TICK_MS = 100;  // Proximity 檢測節流間隔（ms）
 
 // ========== 初始設定 ==========
 
-export const DEFAULT_MAP_ID = 'MAP-field-002';  // 預設初始地圖 ID（暫時跳過地圖一）
-export const DEFAULT_QUEST_ID = 'QST-main-003';  // 預設初始任務 ID（地圖二起始任務）
+export const DEFAULT_MAP_ID = 'MAP-field-003';  // 預設初始地圖 ID（微光村斷崖）
+export const DEFAULT_QUEST_ID = 'QST-main-006';  // 預設初始任務 ID（地圖三起始任務）
+
+/**
+ * 各地圖進入時，預設隱藏的 NPC ID 列表
+ * 這些 NPC 由任務邏輯（showNpc / hideNpc）控制出現時機
+ */
+export const MAP_INITIAL_HIDDEN_NPCS: Record<string, string[]> = {
+  'MAP-field-003': ['OBJ-npc-006'],  // 小迪：QST-006 完成後才現身，QST-007 完成後離場
+};

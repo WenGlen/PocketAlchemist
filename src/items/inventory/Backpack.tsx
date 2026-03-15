@@ -35,7 +35,7 @@ interface BackpackProps {
   capacity: number;
   onMoveSlot: (fromIndex: number, toIndex: number) => void;
   onDragEnd?: (fromSlotIndex: number, clientX: number, clientY: number) => void;
-  onDragMove?: (clientX: number, clientY: number) => void;  // 拖曳中每 move 回報座標，供 parent 算 drop 目標高亮
+  onDragMove?: (slotIndex: number, clientX: number, clientY: number) => void;  // 拖曳中每 move 回報座標與拖曳格子，供 parent 算 drop 目標高亮
   onDragEndOrCancel?: () => void;  // 拖曳結束或取消時呼叫，供 parent 清除 drop 目標狀態
   highlightItemId?: string | null;  // 需要高亮顯示的道具 ID（例如靠近湖時玻璃瓶變亮）
   lastPlacedSlotIndex?: number | null;  // 剛放入道具的格子 index，觸發落地動效後由 parent 清除
@@ -168,7 +168,7 @@ export function Backpack({
             console.log('[Backpack] ghost position', moveEvent.clientX, moveEvent.clientY);
           }
         }
-        onDragMoveRef.current?.(moveEvent.clientX, moveEvent.clientY);
+        onDragMoveRef.current?.(start.index, moveEvent.clientX, moveEvent.clientY);
         setDidDrag(true);
         const el = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
         const slotEl = el?.closest('[data-slot-index]');

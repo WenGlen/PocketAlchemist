@@ -14,7 +14,7 @@ import { APP_VERSION, debugConfig } from './devVersion';
 //   MVP-02.02  → mvp02bSelfTest
 import { mvp01SelfTestConfig } from './theDev/configs/mvp01SelfTest';
 import { getQuestTable, getQuestList } from './core/config/dataSource';
-import { initQuestRuntime } from './quests/data/questData';
+import { initQuestRuntime } from './quests/data/questUtils';
 
 type InitState = 'loading' | 'ready' | 'error';
 

@@ -5,8 +5,6 @@ import { ItemSelect } from '../ItemSelect';
 import { BubbleEditor } from '../BubbleEditor';
 import { DialogueByEntityEditor } from '../DialogueByEntityEditor';
 import type { DialogueByEntity } from '../DialogueByEntityEditor';
-import { IntroDialogueEditor } from '../IntroDialogueEditor';
-import type { IntroLine } from '../IntroDialogueEditor';
 import { StepCompleteEditor, DEFAULT_COMPLETE, parseOnStepComplete, buildOnStepComplete } from '../StepCompleteEditor';
 import type { StepCompleteState } from '../StepCompleteEditor';
 import { NpcOverrideEditor, recordToOverrideArray, arrayToOverrideRecord } from '../NpcOverrideEditor';
@@ -38,9 +36,7 @@ export const DeliverToStepEditor = forwardRef<DeliverToStepEditorHandle, Props>(
     const [dialogueByEntity, setDialogueByEntity] = useState<DialogueByEntity>(
       initialStep?.dialogueByEntity ?? {}
     );
-    const [introDialogue, setIntroDialogue] = useState<IntroLine[]>(
-      (initialStep?.introDialogue as IntroLine[] | undefined) ?? []
-    );
+    const [npcMessage, setNpcMessage] = useState(initialStep?.npcMessage ?? '');
     const [onComplete, setOnComplete] = useState<StepCompleteState>(() =>
       parseOnStepComplete(initialStep?.onStepComplete)
     );
@@ -63,7 +59,7 @@ export const DeliverToStepEditor = forwardRef<DeliverToStepEditorHandle, Props>(
           ...(bubble.bubbleItemId && { bubbleItemId: bubble.bubbleItemId }),
           ...(bubble.bubbleLabel && { bubbleLabel: bubble.bubbleLabel }),
           ...(Object.keys(dialogueByEntity).length > 0 && { dialogueByEntity }),
-          ...(introDialogue.length > 0 && { introDialogue }),
+          ...(npcMessage && { npcMessage }),
           ...(stepComplete !== undefined && { onStepComplete: stepComplete }),
           ...(overrides && { npcPositionOverrides: overrides }),
         };
@@ -91,15 +87,6 @@ export const DeliverToStepEditor = forwardRef<DeliverToStepEditorHandle, Props>(
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            錯誤道具提示
-            <span className="ml-1 font-normal text-gray-400 text-xs">wrongItemMessage</span>
-          </label>
-          <input type="text" value={wrongItemMessage} onChange={(e) => setWrongItemMessage(e.target.value)} placeholder="例：不是這個，我要的是茶。" className={INPUT} />
-          <p className="mt-1 text-xs text-gray-400">玩家拖放錯誤道具時顯示</p>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">
             任務追蹤提示
             <span className="ml-1 font-normal text-gray-400 text-xs">message</span>
           </label>
@@ -107,10 +94,26 @@ export const DeliverToStepEditor = forwardRef<DeliverToStepEditorHandle, Props>(
           <p className="mt-1 text-xs text-gray-400">顯示於任務追蹤 UI</p>
         </div>
 
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            NPC 說的話（交付區域前）
+            <span className="ml-1 font-normal text-gray-400 text-xs">npcMessage</span>
+          </label>
+          <textarea value={npcMessage} onChange={(e) => setNpcMessage(e.target.value)} rows={2} placeholder="例：茶做好了嗎？放到這裡來吧。" className={INPUT} />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            錯誤道具提示
+            <span className="ml-1 font-normal text-gray-400 text-xs">wrongItemMessage</span>
+          </label>
+          <input type="text" value={wrongItemMessage} onChange={(e) => setWrongItemMessage(e.target.value)} placeholder="例：不是這個，我要的是茶。" className={INPUT} />
+          <p className="mt-1 text-xs text-gray-400">玩家拖放錯誤道具時顯示</p>
+        </div>
+
         <StepCompleteEditor value={onComplete} onChange={setOnComplete} />
         <BubbleEditor value={bubble} onChange={setBubble} entityIdDefault={entityId} />
         <DialogueByEntityEditor value={dialogueByEntity} onChange={setDialogueByEntity} />
-        <IntroDialogueEditor value={introDialogue} onChange={setIntroDialogue} />
 
         <div className="rounded-md border border-gray-200 bg-gray-50">
           <button type="button" onClick={() => setNpcOverrideOpen((o) => !o)} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100">

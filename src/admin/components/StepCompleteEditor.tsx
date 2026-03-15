@@ -61,17 +61,35 @@ export function parseOnStepComplete(
 interface Props {
   value: StepCompleteState;
   onChange: (v: StepCompleteState) => void;
-  showAdvanced?: boolean; // interact_with 和 start 才顯示進階設定
+  showAdvanced?: boolean; // interact_with 才顯示進階設定（含對話框行為）
+  /**
+   * npcOnly 模式：給 start / talk_to / complete 使用
+   * 這些步驟的對話框行為由系統固定控制，此處只顯示 hideNpc / showNpc 副作用設定
+   */
+  npcOnly?: boolean;
 }
 
-export function StepCompleteEditor({ value, onChange, showAdvanced = false }: Props) {
+export function StepCompleteEditor({ value, onChange, showAdvanced = false, npcOnly = false }: Props) {
   const toggleNpc = (list: 'hideNpc' | 'showNpc', npcId: string) => {
     const current = value[list];
     const next = current.includes(npcId)
       ? current.filter((id) => id !== npcId)
       : [...current, npcId];
-    onChange({ ...value, [list]: next });
+    onChange({ ...value, mode: 'advanced', [list]: next });
   };
+
+  // npcOnly 模式：直接顯示 hideNpc / showNpc 控制，不顯示對話框模式選項
+  if (npcOnly) {
+    return (
+      <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+        <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+          步驟完成後 NPC 變化（onStepComplete）
+        </label>
+        <NpcToggleSection label="隱藏 NPC" field="hideNpc" colorClass="red" value={value} toggleNpc={toggleNpc} />
+        <NpcToggleSection label="顯示 NPC" field="showNpc" colorClass="green" value={value} toggleNpc={toggleNpc} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50 p-3">
@@ -126,68 +144,46 @@ export function StepCompleteEditor({ value, onChange, showAdvanced = false }: Pr
               ))}
             </div>
           </div>
+          <NpcToggleSection label="隱藏 NPC" field="hideNpc" colorClass="red" value={value} toggleNpc={toggleNpc} />
+          <NpcToggleSection label="顯示 NPC" field="showNpc" colorClass="green" value={value} toggleNpc={toggleNpc} />
+        </div>
+      )}
+    </div>
+  );
+}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
-              步驟完成後隱藏 NPC
-              <span className="ml-1 font-normal text-gray-400">（hideNpc）</span>
-            </label>
-            <EntitySelect
-              value=""
-              onChange={(id) => id && toggleNpc('hideNpc', id)}
-              placeholder="點選新增要隱藏的 NPC"
-            />
-            {value.hideNpc.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {value.hideNpc.map((id) => (
-                  <span
-                    key={id}
-                    className="flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs text-red-700"
-                  >
-                    {id}
-                    <button
-                      type="button"
-                      onClick={() => toggleNpc('hideNpc', id)}
-                      className="ml-0.5 hover:text-red-900"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+// ── 共用子元件：NPC 隱藏/顯示切換 ──────────────────────────────────────────
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">
-              步驟完成後顯示 NPC
-              <span className="ml-1 font-normal text-gray-400">（showNpc）</span>
-            </label>
-            <EntitySelect
-              value=""
-              onChange={(id) => id && toggleNpc('showNpc', id)}
-              placeholder="點選新增要顯示的 NPC"
-            />
-            {value.showNpc.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {value.showNpc.map((id) => (
-                  <span
-                    key={id}
-                    className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-700"
-                  >
-                    {id}
-                    <button
-                      type="button"
-                      onClick={() => toggleNpc('showNpc', id)}
-                      className="ml-0.5 hover:text-green-900"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+interface NpcToggleSectionProps {
+  label: string;
+  field: 'hideNpc' | 'showNpc';
+  colorClass: 'red' | 'green';
+  value: StepCompleteState;
+  toggleNpc: (field: 'hideNpc' | 'showNpc', id: string) => void;
+}
+
+function NpcToggleSection({ label, field, colorClass, value, toggleNpc }: NpcToggleSectionProps) {
+  const tagBg = colorClass === 'red' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+  const fieldName = field === 'hideNpc' ? 'hideNpc' : 'showNpc';
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-gray-600">
+        {label}
+        <span className="ml-1 font-normal text-gray-400">（{fieldName}）</span>
+      </label>
+      <EntitySelect
+        value=""
+        onChange={(id) => id && toggleNpc(field, id)}
+        placeholder={`點選新增要${label.replace(' NPC', '')}的 NPC`}
+      />
+      {value[field].length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {value[field].map((id) => (
+            <span key={id} className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs ${tagBg}`}>
+              {id}
+              <button type="button" onClick={() => toggleNpc(field, id)} className="ml-0.5 hover:opacity-70">✕</button>
+            </span>
+          ))}
         </div>
       )}
     </div>

@@ -52,7 +52,7 @@ export const ITEM_OPTIONS: ItemOption[] = [
 export const MAP_OPTIONS: MapOption[] = [
   { id: 'MAP-field-001', name: '野外初生地' },
   { id: 'MAP-field-002', name: '幽林深處' },
-  { id: 'MAP-shimmer-001', name: '微光村斷崖' },
+  { id: 'MAP-field-003', name: '微光村斷崖' },
 ];
 
 export const ACCEPT_MODE_OPTIONS = [
@@ -64,13 +64,14 @@ export const ACCEPT_MODE_OPTIONS = [
 
 export const STEP_TYPE_OPTIONS = [
   { value: 'start', label: 'start', desc: '承接任務（發放 NPC 的對話）', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  { value: 'talk_to', label: 'talk_to', desc: '純對話：跑完台詞自動完成', color: 'bg-sky-100 text-sky-700 border-sky-200' },
   { value: 'receive_from', label: 'receive_from', desc: '向 NPC 領取道具', color: 'bg-green-100 text-green-700 border-green-200' },
   { value: 'deliver_to', label: 'deliver_to', desc: '將道具交給 NPC', color: 'bg-orange-100 text-orange-700 border-orange-200' },
-  { value: 'interact_with', label: 'interact_with', desc: '與 NPC 或物件互動（純對話）', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  { value: 'interact_with', label: 'interact_with', desc: '向 NPC 確認回報（需點按鈕）', color: 'bg-purple-100 text-purple-700 border-purple-200' },
   { value: 'complete', label: 'complete', desc: '任務結束（完成彈窗）', color: 'bg-gray-100 text-gray-600 border-gray-200' },
 ] as const;
 
-export type StepType = 'start' | 'receive_from' | 'deliver_to' | 'interact_with' | 'complete';
+export type StepType = 'start' | 'talk_to' | 'receive_from' | 'deliver_to' | 'interact_with' | 'complete';
 
 export function getStepTypeStyle(type: StepType): string {
   return STEP_TYPE_OPTIONS.find((o) => o.value === type)?.color ?? 'bg-gray-100 text-gray-600';

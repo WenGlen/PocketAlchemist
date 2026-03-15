@@ -4,8 +4,6 @@ import { EntitySelect } from '../EntitySelect';
 import { BubbleEditor } from '../BubbleEditor';
 import { DialogueByEntityEditor } from '../DialogueByEntityEditor';
 import type { DialogueByEntity } from '../DialogueByEntityEditor';
-import { IntroDialogueEditor } from '../IntroDialogueEditor';
-import type { IntroLine } from '../IntroDialogueEditor';
 import { StepCompleteEditor, DEFAULT_COMPLETE, parseOnStepComplete, buildOnStepComplete } from '../StepCompleteEditor';
 import type { StepCompleteState } from '../StepCompleteEditor';
 import { NpcOverrideEditor, recordToOverrideArray, arrayToOverrideRecord } from '../NpcOverrideEditor';
@@ -27,7 +25,8 @@ export const InteractWithStepEditor = forwardRef<InteractWithStepEditorHandle, P
   function InteractWithStepEditor({ initialStep }, ref) {
     const [entityId, setEntityId] = useState(initialStep?.entityId ?? '');
     const [message, setMessage] = useState(initialStep?.message ?? '');
-    const [completeMessage, setCompleteMessage] = useState(initialStep?.completeMessage ?? '');
+    const [npcMessage, setNpcMessage] = useState(initialStep?.npcMessage ?? '');
+    const [confirmButtonText, setConfirmButtonText] = useState(initialStep?.confirmButtonText ?? '');
     const [bubble, setBubble] = useState({
       bubbleEntityId: initialStep?.bubbleEntityId ?? '',
       bubbleItemId: '',
@@ -35,9 +34,6 @@ export const InteractWithStepEditor = forwardRef<InteractWithStepEditorHandle, P
     });
     const [dialogueByEntity, setDialogueByEntity] = useState<DialogueByEntity>(
       initialStep?.dialogueByEntity ?? {}
-    );
-    const [introDialogue, setIntroDialogue] = useState<IntroLine[]>(
-      (initialStep?.introDialogue as IntroLine[] | undefined) ?? []
     );
     const [onComplete, setOnComplete] = useState<StepCompleteState>(() =>
       parseOnStepComplete(initialStep?.onStepComplete)
@@ -55,11 +51,11 @@ export const InteractWithStepEditor = forwardRef<InteractWithStepEditorHandle, P
           type: 'interact_with',
           entityId,
           ...(message && { message }),
-          ...(completeMessage && { completeMessage }),
+          ...(npcMessage && { npcMessage }),
+          ...(confirmButtonText && { confirmButtonText }),
           ...(bubble.bubbleEntityId && { bubbleEntityId: bubble.bubbleEntityId }),
           ...(bubble.bubbleLabel && { bubbleLabel: bubble.bubbleLabel }),
           ...(Object.keys(dialogueByEntity).length > 0 && { dialogueByEntity }),
-          ...(introDialogue.length > 0 && { introDialogue }),
           ...(stepComplete !== undefined && { onStepComplete: stepComplete }),
           ...(overrides && { npcPositionOverrides: overrides }),
         };
@@ -87,17 +83,24 @@ export const InteractWithStepEditor = forwardRef<InteractWithStepEditorHandle, P
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            互動完成後顯示訊息
-            <span className="ml-1 font-normal text-gray-400 text-xs">completeMessage</span>
+            NPC 說的話（確認按鈕前）
+            <span className="ml-1 font-normal text-gray-400 text-xs">npcMessage</span>
           </label>
-          <textarea value={completeMessage} onChange={(e) => setCompleteMessage(e.target.value)} rows={2} placeholder="例：辛苦了，感謝你的幫助！" className={INPUT} />
-          <p className="mt-1 text-xs text-gray-400">互動完成後顯示的訊息</p>
+          <textarea value={npcMessage} onChange={(e) => setNpcMessage(e.target.value)} rows={2} placeholder="例：辛苦了，任務完成了嗎？" className={INPUT} />
+        </div>
+
+        <div className="w-48">
+          <label className="mb-1.5 block text-sm font-medium text-gray-700">
+            確認按鈕文字
+            <span className="ml-1 font-normal text-gray-400 text-xs">confirmButtonText</span>
+          </label>
+          <input type="text" value={confirmButtonText} onChange={(e) => setConfirmButtonText(e.target.value)} placeholder="確認" className={INPUT} />
+          <p className="mt-1 text-xs text-gray-400">預設「確認」</p>
         </div>
 
         <StepCompleteEditor value={onComplete} onChange={setOnComplete} showAdvanced />
         <BubbleEditor value={bubble} onChange={setBubble} entityIdDefault={entityId} />
         <DialogueByEntityEditor value={dialogueByEntity} onChange={setDialogueByEntity} />
-        <IntroDialogueEditor value={introDialogue} onChange={setIntroDialogue} />
 
         <div className="rounded-md border border-gray-200 bg-gray-50">
           <button type="button" onClick={() => setNpcOverrideOpen((o) => !o)} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100">
@@ -111,7 +114,7 @@ export const InteractWithStepEditor = forwardRef<InteractWithStepEditorHandle, P
         </div>
 
         <div className="rounded-md bg-purple-50 px-4 py-3 text-sm text-purple-600">
-          <strong>interact_with</strong>：玩家與指定 NPC 或物件互動，不涉及道具交換（純對話或觸發劇情）。
+          <strong>interact_with</strong>：玩家與指定 NPC 互動，需主動點確認按鈕才完成步驟（適合回報、確認等場景）。
         </div>
       </div>
     );

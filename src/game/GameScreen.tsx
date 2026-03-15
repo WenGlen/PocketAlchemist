@@ -19,10 +19,10 @@ import { SynthesisPanel } from '../items/inventory/synthesis/SynthesisPanel';
 import { ProcessingPanel } from '../items/inventory/processing/ProcessingPanel';
 import { DialoguePanel } from '../objects/npc/DialoguePanel';
 import { getObject, getResourceNode, getResourceNodesRequiringItem, getGatherLimitForNode, getLabTerrain } from '../objects/data/objectsTable';
-import { ITM_MAT_0001, ITM_EQP_0001, ITM_EQP_0002, getItem } from '../items/data/itemsTable';
+import { ITM_MAT_0001, ITM_EQP_0001, ITM_EQP_0002, ITM_POT_0002, getItem } from '../items/data/itemsTable';
 import type { SlotItem } from '../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../items/inventory/Backpack';
-import { getStartStep, getQuestListRuntime } from '../quests/data/questData';
+import { getStartStep, getQuestListRuntime } from '../quests/data/questUtils';
 import type { AcceptMode } from '../quests/data/questData';
 import { useQuestState } from '../quests/useQuestState';
 import { interactionConfig } from './interactionConfig';
@@ -39,13 +39,14 @@ const SKILL_PANEL_DEFS: Record<string, { label: string; maxHeight: number }> = {
 
 // ========== 工具函數 ==========
 
-// 初始背包：玻璃瓶 x2 + 簡易加熱器 + 手套
+// 初始背包：玻璃瓶 x2 + 簡易加熱器 + 手套 + 治療藥水
 function getInitialSlotsForMap(_mapId: string): { itemId: string; count: number }[] {
   return [
     { itemId: ITM_MAT_0001.id, count: 1 },
     { itemId: ITM_MAT_0001.id, count: 1 },
     { itemId: ITM_EQP_0001.id, count: 1 },
     { itemId: ITM_EQP_0002.id, count: 1 },
+    { itemId: ITM_POT_0002.id, count: 1 },
   ];
 }
 
@@ -71,8 +72,8 @@ export function GameScreen() {
   const [justCrafted, setJustCrafted] = useState(false);
   const [justProcessed, setJustProcessed] = useState(false);
 
-  // 任務狀態管理（從 useQuestState hook 取得）
-  const questState = useQuestState(game);
+  // 任務狀態管理（從 useQuestState hook 取得；onGiveItem 注入背包操作）
+  const questState = useQuestState(game, { onGiveItem: backpack.addItem });
   const synthesisSlotsRef = useRef(synthesisSlots);
   synthesisSlotsRef.current = synthesisSlots;
   const processingSlotsRef = useRef(processingSlots);
@@ -135,6 +136,23 @@ export function GameScreen() {
 
   // 從 questState 解構常用值
   const { quest, currentStep, nextQuest, interactableNpcId, bubble } = questState;
+
+  // talk_to 對話進行中（遮罩點擊應推進對話而非關閉）
+  const isPlayingTalkTo = !!(
+    questState.talkToLines &&
+    questState.talkToLines.length > 0 &&
+    questState.talkToLineIndex >= 0 &&
+    questState.talkToLineIndex < questState.talkToLines.length
+  );
+
+  // 「點擊推進」模式：talk_to 逐句 或 start 步驟承接中（auto/chained/forced）
+  // handleAdvanceDialogue 在 handleCloseDialogue 定義後才能引用，見下方
+  const isAdvancingDialogue = isPlayingTalkTo || questState.isPlayingStart;
+
+  // talk_to 中當前說話者是否為主角（供站位圖淡化效果使用）
+  const isPlayerSpeaking =
+    isPlayingTalkTo &&
+    questState.talkToLines?.[questState.talkToLineIndex]?.speaker === 'player';
 
   // 依資源點定義統一判斷：需道具互動的節點（如湖邊、水源）用 interactionRange，有對應道具即高亮
   const range = interactionConfig.interactionRange;
@@ -249,7 +267,7 @@ export function GameScreen() {
     return () => clearTimeout(t);
   }, [lastPlacedSlotIndex]);
 
-  const handleDragMoveFromBackpack = useCallback((clientX: number, clientY: number) => {
+  const handleDragMoveFromBackpack = useCallback((slotIndex: number, clientX: number, clientY: number) => {
     const el = document.elementFromPoint(clientX, clientY);
     const synth = el?.closest('[data-synthesis-slot]');
     const proc = el?.closest('[data-processing-slot]');
@@ -260,13 +278,17 @@ export function GameScreen() {
     // 資源點改用世界座標圓形判定（與點擊判定完全相同，避免 DOM 堆疊造成 Y 方向偏小）
     const world = screenToWorldRef.current?.(clientX, clientY);
     const resourceId = world ? hitTest(world.x, world.y, hitTestTargetsRef.current.resources) : null;
+    // 只有符合裝備條件（手持道具）才高亮裝備欄，避免普通道具被誤解為可裝備
+    const draggingItem = backpackRef.current.slots[slotIndex];
+    const draggingItemDef = draggingItem ? getItem(draggingItem.itemId) : null;
+    const canEquip = draggingItemDef?.subCategory === 'eqp' && draggingItemDef.part === 'hand';
     if (synth) {
       const i = parseInt(synth.getAttribute('data-synthesis-slot-index') ?? '0', 10);
       setDropTarget({ type: 'synthesis', index: i });
     } else if (proc) {
       const i = parseInt(proc.getAttribute('data-processing-slot-index') ?? '0', 10);
       setDropTarget({ type: 'processing', index: i });
-    } else if (equip) {
+    } else if (equip && canEquip) {
       const i = parseInt(equip.getAttribute('data-equip-slot-index') ?? '0', 10);
       setDropTarget({ type: 'equip', index: i });
     } else if (delivery) setDropTarget({ type: 'delivery' });
@@ -453,13 +475,6 @@ export function GameScreen() {
     [game, backpack]
   );
 
-  // 對話窗內點「領取」：完成當前 receive_from 步驟（發放道具並推進步驟）
-  const handleReceiveFromStep = useCallback(() => {
-    if (game.questPhase !== 'accepted' || !quest || currentStep?.type !== 'receive_from' || currentStep.entityId !== game.dialogueNpcId) return;
-    backpack.addItem(currentStep.itemId, currentStep.count ?? 1);
-    game.advanceQuestStep();
-  }, [game, quest, currentStep, game.dialogueNpcId, backpack]);
-
   // 關閉對話窗：委託 questState 處理任務邏輯，再關閉對話
   const handleCloseDialogue = useCallback(() => {
     const result = questState.handleQuestDialogueClose();
@@ -473,6 +488,11 @@ export function GameScreen() {
     game.closeDialogue();
     setDeliveryMessage(null);
   }, [game, questState.handleQuestDialogueClose]);
+
+  // 推進對話：talk_to → 讀下一句；start（auto/chained/forced）→ 承接任務（shouldClose=false，不實際關閉）
+  const handleAdvanceDialogue = isPlayingTalkTo
+    ? questState.handleAdvanceTalkTo
+    : handleCloseDialogue;
 
   const monsterStunned = game.monsterStunUntil > Date.now();
 
@@ -545,30 +565,50 @@ export function GameScreen() {
           >
             {content}
           </MapArea>
-          {/* 對話時地圖半透明黑色遮罩；點擊等同關閉對話 */}
+          {/* 對話時地圖半透明黑色遮罩；推進模式點擊推進，其餘點擊關閉對話 */}
           {game.dialogueOpen && (
             <div
               className="absolute inset-0 bg-black/50 z-30 pointer-events-auto cursor-pointer"
               role="button"
               tabIndex={-1}
-              aria-label="關閉對話"
-              onClick={handleCloseDialogue}
+              aria-label={isAdvancingDialogue ? '繼續' : '關閉對話'}
+              onClick={isAdvancingDialogue ? handleAdvanceDialogue : handleCloseDialogue}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  handleCloseDialogue();
+                  if (isAdvancingDialogue) handleAdvanceDialogue();
+                  else handleCloseDialogue();
                 }
               }}
             />
           )}
-          {/* 對話時左側人物立繪站位（暫用半透明方塊 + 名稱）；外層 w-full 讓內層 50% 有可參照的寬度 */}
+          {/* 對話時人物立繪站位（暫用半透明方塊 + 名稱） */}
           {game.dialogueOpen && npc && (
-            <div className="absolute inset-0 z-50 flex items-center pointer-events-none">
-              <div className="w-1/2 h-[60%] rounded-lg border border-[var(--color-border)] bg-[var(--color-panel-25)]/80 flex items-center justify-center">
+            <div className="absolute inset-0 z-50 flex items-center justify-between pointer-events-none">
+              {/* NPC 站位（左） */}
+              <div
+                className={`w-[45%] h-[60%] rounded-lg border border-[var(--color-border)] bg-[var(--color-panel-25)]/80 flex items-center justify-center transition-opacity duration-200 ${
+                  isPlayingTalkTo
+                    ? isPlayerSpeaking ? 'opacity-40' : 'opacity-100'
+                    : 'opacity-100'
+                }`}
+              >
                 <span className="text-sm text-[var(--color-text-default)] text-center">
                   {npc.displayName}
                 </span>
               </div>
+              {/* 主角站位（右）：僅 talk_to 期間顯示 */}
+              {isPlayingTalkTo && (
+                <div
+                  className={`w-[45%] h-[60%] rounded-lg border border-[var(--color-border)] bg-[var(--color-panel-25)]/80 flex items-center justify-center transition-opacity duration-200 ${
+                    isPlayerSpeaking ? 'opacity-100' : 'opacity-40'
+                  }`}
+                >
+                  <span className="text-sm text-[var(--color-text-default)] text-center">
+                    你
+                  </span>
+                </div>
+              )}
             </div>
           )}
           {game.dialogueOpen && npc && (
@@ -581,16 +621,18 @@ export function GameScreen() {
               currentStep={currentStep}
               dialogueNpcId={game.dialogueNpcId}
               completeMessage={questState.completeMessage}
-              onReceiveFromStep={handleReceiveFromStep}
+              onReceiveFromStep={questState.handleReceiveFromStep}
               deliveryZoneHighlight={dropTarget?.type === 'delivery'}
               onAcceptQuest={questState.handleAcceptQuest}
               isManualAcceptMode={questState.isManualAcceptMode}
               isChainedPendingMode={questState.isChainedPendingMode}
               isAutoAcceptMode={questState.isAutoAcceptMode}
               showForcedStartDialogue={questState.showForcedStartDialogue}
-              introDialogue={questState.currentIntroDialogue}
-              introDialogueIndex={questState.introDialogueIndex}
-              onAdvanceIntroDialogue={questState.handleAdvanceIntroDialogue}
+              isAdvancingDialogue={isAdvancingDialogue}
+              onAdvance={handleAdvanceDialogue}
+              talkToLines={questState.talkToLines}
+              talkToLineIndex={questState.talkToLineIndex}
+              onConfirmInteract={questState.handleConfirmInteract}
               deliveryErrorMessage={deliveryMessage}
             />
           )}
@@ -694,6 +736,35 @@ export function GameScreen() {
             <span className="text-xl font-bold text-[var(--color-primary)]">任務完成</span>
             <span className="text-sm text-[var(--color-text-default)]">{questState.completedQuestInfo.name}</span>
             <span className="text-xs text-[var(--color-text-muted)]">點擊任意處繼續探索</span>
+          </div>
+        </div>
+      )}
+
+      {/* 事件面板：劇情演出（地圖切換、NPC 狀態變化等） */}
+      {questState.showEventPanel && questState.pendingEvent && (
+        <div
+          className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          aria-label="繼續"
+          onClick={questState.handleCloseEventPanel}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              questState.handleCloseEventPanel();
+            }
+          }}
+        >
+          <div
+            className="animate-quest-complete rounded-xl bg-[var(--color-panel)] border border-[var(--color-border)] px-8 py-6 shadow-lg max-w-xs flex flex-col items-center gap-4 text-center cursor-default"
+            role="dialog"
+            aria-label="劇情演出"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-base font-medium text-[var(--color-text-default)] whitespace-pre-line leading-relaxed">
+              {questState.pendingEvent.message}
+            </span>
+            <span className="text-xs text-[var(--color-text-muted)]">點擊任意處繼續</span>
           </div>
         </div>
       )}

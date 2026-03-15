@@ -66,12 +66,14 @@ export const StartStepEditor = forwardRef<StartStepEditorHandle, Props>(
           <p className="mt-1 text-xs text-gray-400">{acceptText.length} 字 ── 承接任務後對話框顯示的 NPC 台詞</p>
         </div>
 
-        <StepCompleteEditor value={onComplete} onChange={setOnComplete} showAdvanced />
+        <StepCompleteEditor value={onComplete} onChange={setOnComplete} npcOnly />
 
         <NpcOverrideCollapse value={npcOverrides} onChange={setNpcOverrides} />
 
         <div className="rounded-md bg-blue-50 px-4 py-3 text-sm text-blue-600">
-          <strong>start</strong>：任務的起始步驟。玩家點擊指定 NPC 時承接任務，必須是 steps[0]。
+          <strong>start</strong>：任務的起始步驟，必須是 steps[0]。
+          玩家點擊 NPC 承接任務後，對話框<strong>永遠自動銜接</strong>到下一步（不需要設定對話框行為）。
+          若需要在此步驟後顯示/隱藏某個 NPC，使用上方的「步驟完成後 NPC 變化」。
         </div>
       </div>
     );

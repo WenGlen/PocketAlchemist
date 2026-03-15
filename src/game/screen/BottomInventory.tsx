@@ -1,13 +1,12 @@
 //════════════════════════════════════════════════════════════════
 // 底部道具欄
 //════════════════════════════════════════════════════════════════
-// 左：手持裝備欄  中：背包  右：技能按鈕
+// 左：手持工具按鈕（左半=技能、右半=道具）  中：背包
 // 延伸面板（合成、加工等）統一從底部向上展開
 
 import type { ReactNode } from 'react';
 import { Backpack } from '../../items/inventory/Backpack';
 import { EquipmentSlots } from '../../items/equipment/EquipmentSlots';
-import { SkillButtons } from '../../items/equipment/SkillButtons';
 import type { SlotItem } from '../../items/inventory/useBackpack';
 import type { DropTargetFromBackpack } from '../../items/inventory/Backpack';
 import type { SkillButtonConfig } from '../../items/equipment/SkillButtons';
@@ -38,7 +37,7 @@ interface BottomInventoryProps {
   panelContents: Record<string, PanelConfig>;
   // 拖曳
   onDragEndFromBackpack?: (backpackSlotIndex: number, clientX: number, clientY: number) => void;
-  onDragMoveFromBackpack?: (clientX: number, clientY: number) => void;
+  onDragMoveFromBackpack?: (slotIndex: number, clientX: number, clientY: number) => void;
   onDragEndOrCancelFromBackpack?: () => void;
   dropTarget?: DropTargetFromBackpack | null;
   // 高亮與動效
@@ -85,10 +84,13 @@ export function BottomInventory({
         </div>
       )}
 
-      {/* 主列：裝備欄 ╱ 背包格 ╱ 技能按鈕 */}
+      {/* 主列：手持工具按鈕 ╱ 背包格 */}
       <div className="flex flex-row items-center justify-center px-2">
         <EquipmentSlots
           slots={equipSlots}
+          skillConfigs={skillButtonConfigs}
+          activePanelId={activePanelId}
+          onTogglePanel={handleTogglePanel}
           dropTargetIndex={equipDropTargetIndex}
           onUnequip={onUnequip}
         />
@@ -102,11 +104,6 @@ export function BottomInventory({
           highlightItemId={highlightItemId}
           lastPlacedSlotIndex={lastPlacedSlotIndex}
           onSlotPlaced={onSlotPlaced}
-        />
-        <SkillButtons
-          configs={skillButtonConfigs}
-          activePanelId={activePanelId}
-          onToggle={handleTogglePanel}
         />
       </div>
     </div>

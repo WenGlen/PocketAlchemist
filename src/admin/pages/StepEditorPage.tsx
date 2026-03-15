@@ -7,6 +7,8 @@ import { getStepTypeStyle } from '../adminConstants';
 import type { StepType } from '../adminConstants';
 import { StartStepEditor } from '../components/steps/StartStepEditor';
 import type { StartStepEditorHandle } from '../components/steps/StartStepEditor';
+import { TalkToStepEditor } from '../components/steps/TalkToStepEditor';
+import type { TalkToStepEditorHandle } from '../components/steps/TalkToStepEditor';
 import { ReceiveFromStepEditor } from '../components/steps/ReceiveFromStepEditor';
 import type { ReceiveFromStepEditorHandle } from '../components/steps/ReceiveFromStepEditor';
 import { DeliverToStepEditor } from '../components/steps/DeliverToStepEditor';
@@ -19,6 +21,7 @@ import type { CompleteStepEditorHandle } from '../components/steps/CompleteStepE
 // 統一的 editor handle 型別
 type AnyStepEditorHandle =
   | StartStepEditorHandle
+  | TalkToStepEditorHandle
   | ReceiveFromStepEditorHandle
   | DeliverToStepEditorHandle
   | InteractWithStepEditorHandle
@@ -171,6 +174,13 @@ export function StepEditorPage() {
             key={stepIndex}
             ref={editorRef as React.Ref<StartStepEditorHandle>}
             initialStep={step as Extract<QuestStep, { type: 'start' }>}
+          />
+        )}
+        {stepType === 'talk_to' && (
+          <TalkToStepEditor
+            key={stepIndex}
+            ref={editorRef as React.Ref<TalkToStepEditorHandle>}
+            initialStep={step as Extract<QuestStep, { type: 'talk_to' }>}
           />
         )}
         {stepType === 'receive_from' && (

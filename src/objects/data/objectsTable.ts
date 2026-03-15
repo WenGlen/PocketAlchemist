@@ -162,7 +162,7 @@ export const OBJ_NPC_004: NpcDef = {
   subEmoji: '🧳',
 };
 
-// ── MAP-shimmer-001：微光村斷崖 NPC ────────────────────────────────
+// ── MAP-field-003：微光村斷崖 NPC ────────────────────────────────
 
 // 老漢克：拾荒老兵，機械義肢受傷受困
 export const OBJ_NPC_005: NpcDef = {
@@ -233,9 +233,9 @@ export const objectTable: Record<string, NpcDef> = {
 
 // 依地圖篩選 NPC。NPC 若設有 positionByMap，渲染時以 mapId 對應座標覆蓋預設 x/y
 export const npcsByMap: Record<string, NpcDef[]> = {
-  'MAP-field-001': [OBJ_NPC_001, OBJ_NPC_002, OBJ_NPC_003],
+  'MAP-field-001': [OBJ_NPC_001, OBJ_NPC_002, OBJ_NPC_003, OBJ_NPC_006, OBJ_NPC_007, OBJ_NPC_008],
   'MAP-field-002': [OBJ_NPC_004, OBJ_NPC_001, OBJ_NPC_002],
-  'MAP-shimmer-001': [OBJ_NPC_005, OBJ_NPC_006, OBJ_NPC_007, OBJ_NPC_008],
+  'MAP-field-003': [OBJ_NPC_005, OBJ_NPC_006],  // 小迪：預設隱藏，QST-007 start 後現身
 };
 
 export function getObject(id: string): NpcDef | undefined {
@@ -400,7 +400,7 @@ export const OBJ_RES_006: ResourceNodeDef = {
   emoji: '🌊',
 };
 
-// ── 資源點：MAP-shimmer-001（微光村斷崖）───────────────────────────
+// ── 資源點：MAP-field-003（微光村斷崖）───────────────────────────
 
 // 斷崖藥草：用於合成治療藥水
 export const OBJ_RES_007: ResourceNodeDef = {
@@ -416,7 +416,7 @@ export const OBJ_RES_007: ResourceNodeDef = {
   mapColor: 'var(--color-map-grass-mid)',
   acquisitionType: 'tap',
   gatherItemId: 'ITM-mat-0004',  // 藥草
-  gatherLimitByMap: { 'MAP-shimmer-001': 5 },
+  gatherLimitByMap: { 'MAP-field-003': 5 },
   gatherEffectId: 'shake_float',
   gatherFloatText: '+1 藥草',
   proximityBubbleText: '可採集藥草',
@@ -458,7 +458,7 @@ export const OBJ_RES_009: ResourceNodeDef = {
   mapColor: '#9b59b6',  // 淡紫色
   acquisitionType: 'tap',
   gatherItemId: 'ITM-mat-0010',  // 清淤草
-  gatherLimitByMap: { 'MAP-shimmer-001': 5 },
+  gatherLimitByMap: { 'MAP-field-003': 5 },
   gatherEffectId: 'shake_float',
   gatherFloatText: '+1 清淤草',
   proximityBubbleText: '發出淡淡紫光的藥草',
@@ -475,7 +475,7 @@ export const resourceNodes: ResourceNodeDef[] = [
 export const resourceNodesByMap: Record<string, ResourceNodeDef[]> = {
   'MAP-field-001': [OBJ_RES_001, OBJ_RES_002, OBJ_RES_003],
   'MAP-field-002': [OBJ_RES_004, OBJ_RES_005, OBJ_RES_006],
-  'MAP-shimmer-001': [OBJ_RES_007, OBJ_RES_008, OBJ_RES_009],
+  'MAP-field-003': [OBJ_RES_007, OBJ_RES_008, OBJ_RES_009],
 };
 
 export function getResourceNode(id: string): ResourceNodeDef | undefined {

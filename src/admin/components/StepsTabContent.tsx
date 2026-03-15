@@ -4,6 +4,8 @@ import { STEP_TYPE_OPTIONS, getStepTypeStyle, getNpcName, getItemName } from '..
 import type { StepType } from '../adminConstants';
 import { StartStepEditor } from './steps/StartStepEditor';
 import type { StartStepEditorHandle } from './steps/StartStepEditor';
+import { TalkToStepEditor } from './steps/TalkToStepEditor';
+import type { TalkToStepEditorHandle } from './steps/TalkToStepEditor';
 import { ReceiveFromStepEditor } from './steps/ReceiveFromStepEditor';
 import type { ReceiveFromStepEditorHandle } from './steps/ReceiveFromStepEditor';
 import { DeliverToStepEditor } from './steps/DeliverToStepEditor';
@@ -14,6 +16,7 @@ import { CompleteStepEditor } from './steps/CompleteStepEditor';
 import type { CompleteStepEditorHandle } from './steps/CompleteStepEditor';
 
 type AnyEditorHandle = { getStep: () => QuestStep };
+
 
 const MIDDLE_STEP_TYPES = STEP_TYPE_OPTIONS.filter(
   (o) => o.value !== 'start' && o.value !== 'complete',
@@ -114,11 +117,13 @@ export const StepsTabContent = forwardRef<StepsTabContentHandle, Props>(
     const addMiddleStep = (type: StepType) => {
       if (expandedIdx !== null) captureAndPersist(expandedIdx);
       const newStep: QuestStep =
-        type === 'receive_from'
-          ? { type: 'receive_from', entityId: '', itemId: '' }
-          : type === 'deliver_to'
-            ? { type: 'deliver_to', entityId: '', itemId: '' }
-            : { type: 'interact_with', entityId: '' };
+        type === 'talk_to'
+          ? { type: 'talk_to', entityId: '', lines: [] }
+          : type === 'receive_from'
+            ? { type: 'receive_from', entityId: '', itemId: '' }
+            : type === 'deliver_to'
+              ? { type: 'deliver_to', entityId: '', itemId: '' }
+              : { type: 'interact_with', entityId: '' };
       const insertAt =
         steps[steps.length - 1]?.type === 'complete' ? steps.length - 1 : steps.length;
       const next = [...steps];
@@ -141,6 +146,14 @@ export const StepsTabContent = forwardRef<StepsTabContentHandle, Props>(
             <StartStepEditor
               key={idx}
               ref={makeEditorRef(idx) as React.Ref<StartStepEditorHandle>}
+              initialStep={step}
+            />
+          );
+        case 'talk_to':
+          return (
+            <TalkToStepEditor
+              key={idx}
+              ref={makeEditorRef(idx) as React.Ref<TalkToStepEditorHandle>}
               initialStep={step}
             />
           );
@@ -287,14 +300,13 @@ export const StepsTabContent = forwardRef<StepsTabContentHandle, Props>(
                     <button
                       type="button"
                       onClick={() => toggleExpand(idx)}
-                      className={`rounded p-1.5 text-sm transition-colors ${
+                      className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                         expanded
-                          ? 'bg-indigo-100 text-indigo-600'
-                          : 'text-gray-400 hover:bg-gray-100'
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'border border-gray-200 text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600'
                       }`}
-                      title={expanded ? '收起' : '展開編輯'}
                     >
-                      {expanded ? '▲' : '▼'}
+                      {expanded ? '▲ 收起' : '▼ 展開'}
                     </button>
                   </div>
                 </div>

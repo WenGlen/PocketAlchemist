@@ -3,7 +3,12 @@
 //════════════════════════════════════════════════════════════════
 // 全遊戲地圖定義的單一來源
 // 包含尺寸、出生點、紋理、特性等
-//════════════════════════════════════════════════════════════════
+//
+// ID 命名規則：
+// 城外地圖：MAP-field-
+// 城內地圖：MAP-city-
+// 室內地圖：MAP-room-
+// ════════════════════════════════════════════════════════════════
 
 // ========== 型別定義 ==========
 
@@ -84,12 +89,12 @@ export const MAP_FIELD_002: MapData = {
   },
 };
 
-// ========== MAP-shimmer-001 微光村斷崖 ==========
+// ========== MAP-field-003 微光村斷崖 ==========
 // 【林間的鏽蝕迴聲】任務線場景
 // 小型地圖，老漢克受困於此
 
-export const MAP_SHIMMER_001: MapData = {
-  id: 'MAP-shimmer-001',
+export const MAP_FIELD_003: MapData = {
+  id: 'MAP-field-003',
   name: '微光村斷崖',
   width: 1000,
   height: 800,
@@ -111,12 +116,37 @@ export const MAP_SHIMMER_001: MapData = {
   },
 };
 
+// ========== MAP-room-001 微光村醫院 ==========
+// 老漢克療傷中的室內場景
+
+export const MAP_ROOM_001: MapData = {
+  id: 'MAP-room-001',
+  name: '微光村醫院',
+  width: 800,
+  height: 600,
+  texture: {
+    gradientColors: {
+      top: '#e8e0d4',
+      mid: '#d4cfc8',
+      bottom: '#c8c3bc',
+    },
+  },
+  spawnPoint: { x: 400, y: 400 },
+  features: {
+    walkable: true,
+    hasMonsters: false,
+    hasTerrainDamage: false,
+    showStats: [],
+  },
+};
+
 // ========== 地圖表與查詢 ==========
 
 export const mapsById: Record<string, MapData> = {
   [MAP_FIELD_001.id]: MAP_FIELD_001,
   [MAP_FIELD_002.id]: MAP_FIELD_002,
-  [MAP_SHIMMER_001.id]: MAP_SHIMMER_001,
+  [MAP_FIELD_003.id]: MAP_FIELD_003,
+  [MAP_ROOM_001.id]: MAP_ROOM_001,
 };
 
 export function getMap(id: string): MapData | undefined {

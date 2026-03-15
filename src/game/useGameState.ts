@@ -19,6 +19,7 @@ import {
   DEFAULT_MAP_WIDTH,
   DEFAULT_MAP_HEIGHT,
   DEFAULT_MAP_ID,
+  MAP_INITIAL_HIDDEN_NPCS,
 } from '../maps/mapConstants';
 import { DEFAULT_ENTITY_RADIUS, FEEDBACK_CLEAR_MS, STUN_FEEDBACK_CLEAR_MS } from '../objects/objectsConstants';
 import { getMap } from '../maps/data/mapsTable';
@@ -115,7 +116,10 @@ export function useGameState() {
   const [selectedPotionItemId, setSelectedPotionItemId] = useState<string | null>(null);  // tap 使用地形時選中的藥劑
   const [terrainClearedIds, setTerrainClearedIds] = useState<Record<string, boolean>>({});  // 已清除的地形 id
   const [selectedQuestId, setSelectedQuestId] = useState<string | null>(null);  // 當前選中的任務 ID（null = 無任務，idle 狀態）
-  const [hiddenNpcIds, setHiddenNpcIds] = useState<Set<string>>(new Set());  // 任務期間隱藏的 NPC
+  // 任務期間隱藏的 NPC；進入地圖時重置為該地圖的初始隱藏清單
+  const [hiddenNpcIds, setHiddenNpcIds] = useState<Set<string>>(
+    () => new Set(MAP_INITIAL_HIDDEN_NPCS[DEFAULT_MAP_ID] ?? [])
+  );
   const [missionResetKey, setMissionResetKey] = useState(0);  // 選單切換時遞增，供背包等重置
   const [monsterLastHitTimes, setMonsterLastHitTimes] = useState<Record<string, number>>({});  // 怪物攻擊時間戳（用於閃光動畫）
   const [monsterCooldownResetTimes, setMonsterCooldownResetTimes] = useState<Record<string, number>>({});  // 冷卻圈起始時間戳
@@ -237,26 +241,14 @@ export function useGameState() {
   }, [lastStunFeedback]);
 
   // ── 任務完成紀錄 ────────────────────────────────────────────────
-  // 持久化於 localStorage，供串鏈前置條件判斷與 UI 鎖定顯示
-  // 只新增不刪除，玩家重複完成同一任務不會影響其他任務的解鎖狀態
-  const [completedQuestIds, setCompletedQuestIds] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem('pa_completed_quests');
-      return stored ? (JSON.parse(stored) as string[]) : [];
-    } catch {
-      return [];
-    }
-  });
+  // [DEV] 測試期間停用 localStorage 持久化，每次都從空陣列開始
+  const [completedQuestIds, setCompletedQuestIds] = useState<string[]>([]);
 
-  // 記錄任務完成，去重後寫入 localStorage
+  // [DEV] 測試期間不寫入 localStorage
   const recordQuestCompletion = useCallback((questId: string) => {
     setCompletedQuestIds((prev) => {
       if (prev.includes(questId)) return prev;
-      const next = [...prev, questId];
-      try {
-        localStorage.setItem('pa_completed_quests', JSON.stringify(next));
-      } catch {}
-      return next;
+      return [...prev, questId];
     });
   }, []);
 
@@ -277,6 +269,7 @@ export function useGameState() {
     monsterStunUntilRef.current = 0;
     setSelectedPotionItemId(null);
     setTerrainClearedIds({});
+    setHiddenNpcIds(new Set(MAP_INITIAL_HIDDEN_NPCS[nextMapId] ?? []));
     setResourceRemaining(getInitialResourceRemainingForMap(nextMapId));
     setMonsterPositions(Object.fromEntries(objMonsters.map((m) => [m.id, { x: m.x, y: m.y }])));
     monsterPatrolDirectionRef.current = Object.fromEntries(

@@ -3,9 +3,10 @@
 //════════════════════════════════════════════════════════════════
 
 import { useState } from 'react';
-import { questTable } from '../../quests/data/questData';
+import { questTable } from '../../quests/data/questUtils';
 import { questList } from '../../quests/data/questList';
-import { uploadQuests, uploadQuestList, type UploadResult } from '../utils/uploadToSheet';
+import { mapsById } from '../../maps/data/mapsTable';
+import { uploadQuests, uploadQuestList, uploadMaps, type UploadResult } from '../utils/uploadToSheet';
 
 // ========== 每個上傳區塊的狀態 ==========
 
@@ -100,6 +101,7 @@ function UploadBlock({ title, description, count, tabName, state, onUpload }: Up
 export function SyncPage() {
   const [questsState, setQuestsState] = useState<BlockState>(initBlock);
   const [questListState, setQuestListState] = useState<BlockState>(initBlock);
+  const [mapsState, setMapsState] = useState<BlockState>(initBlock);
 
   const handleUploadQuests = async () => {
     setQuestsState({ status: 'loading', result: null });
@@ -127,11 +129,24 @@ export function SyncPage() {
     }
   };
 
-  const allIdle = questsState.status === 'idle' && questListState.status === 'idle';
-  const anyLoading = questsState.status === 'loading' || questListState.status === 'loading';
+  const handleUploadMaps = async () => {
+    setMapsState({ status: 'loading', result: null });
+    try {
+      const result = await uploadMaps(Object.values(mapsById));
+      setMapsState({ status: result.success ? 'success' : 'error', result });
+    } catch (err) {
+      setMapsState({
+        status: 'error',
+        result: { success: false, error: '網路錯誤', details: String(err) },
+      });
+    }
+  };
+
+  const allIdle = questsState.status === 'idle' && questListState.status === 'idle' && mapsState.status === 'idle';
+  const anyLoading = questsState.status === 'loading' || questListState.status === 'loading' || mapsState.status === 'loading';
 
   const handleUploadAll = async () => {
-    await Promise.all([handleUploadQuests(), handleUploadQuestList()]);
+    await Promise.all([handleUploadQuests(), handleUploadQuestList(), handleUploadMaps()]);
   };
 
   return (
@@ -169,6 +184,14 @@ export function SyncPage() {
       {/* 上傳區塊 */}
       <div className="space-y-4">
         <UploadBlock
+          title="地圖定義"
+          description="mapsTable.ts 中的所有 MapData（尺寸、出生點、紋理、特性等）"
+          count={Object.keys(mapsById).length}
+          tabName="maps"
+          state={mapsState}
+          onUpload={handleUploadMaps}
+        />
+        <UploadBlock
           title="任務定義"
           description="questData.ts 中的所有 QuestDef（包含步驟、對話、NPC 等完整設定）"
           count={Object.keys(questTable).length}
@@ -192,6 +215,14 @@ export function SyncPage() {
           查看欄位結構
         </summary>
         <div className="border-t border-gray-100 px-5 py-4 space-y-4 text-sm">
+          <div>
+            <p className="font-medium text-gray-700 mb-2">maps 分頁欄位</p>
+            <div className="flex flex-wrap gap-1.5">
+              {['id', 'name', 'width', 'height', 'texture (JSON)', 'spawnPoint (JSON)', 'features (JSON)'].map((f) => (
+                <code key={f} className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{f}</code>
+              ))}
+            </div>
+          </div>
           <div>
             <p className="font-medium text-gray-700 mb-2">quests 分頁欄位</p>
             <div className="flex flex-wrap gap-1.5">

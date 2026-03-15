@@ -11,7 +11,7 @@ function getMapName(questId: string): string {
   const MAP_NAMES: Record<string, string> = {
     'MAP-field-001': '野外初生地',
     'MAP-field-002': '幽林深處',
-    'MAP-shimmer-001': '微光村斷崖',
+    'MAP-field-003': '微光村斷崖',
   };
   return MAP_NAMES[entry.mapId] ?? entry.mapId;
 }

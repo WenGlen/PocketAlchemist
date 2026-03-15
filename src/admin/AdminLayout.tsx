@@ -1,10 +1,24 @@
 import { useState } from 'react';
 import { NavLink, Outlet, Link } from 'react-router-dom';
+import { debugConfig } from '../devVersion';
 
 const NAV_ITEMS = [
   { to: '/admin', label: '任務總覽', icon: '📋', end: true },
-  { to: '/admin/maps', label: '地圖任務綁定', icon: '🗺️', end: false },
+  { to: '/admin/maps', label: '地圖管理', icon: '🗺️', end: false },
   { to: '/admin/sync', label: '同步到 Sheet', icon: '📤', end: false },
+];
+
+const EXTERNAL_LINKS = [
+  {
+    label: '資料表',
+    icon: '📊',
+    href: 'https://docs.google.com/spreadsheets/d/1jhjMREPkbUp6IKzYKrDzd1twU-XEu5Kqh1Uu2jmbIIk/edit?gid=1867363284#gid=1867363284',
+  },
+  {
+    label: 'TheDev',
+    icon: '🛠️',
+    href: 'https://docs.google.com/spreadsheets/d/1sGaS7kaQ9rNJm6Y5H0Vv8XXpcphSP0q6HmWk6vgTG2U/edit?gid=509341805#gid=509341805',
+  },
 ];
 
 function NavItem({
@@ -59,13 +73,34 @@ export function AdminLayout() {
 
       {/* Nav */}
       <nav className="flex-1 p-3 space-y-0.5">
+        {/* 資料來源標籤 */}
+        <div className="mb-2 px-3 py-1.5 rounded-md bg-gray-50 border border-gray-200 flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${debugConfig.useLocalData ? 'bg-amber-400' : 'bg-green-400'}`} />
+          <span className="text-xs text-gray-500">
+            {debugConfig.useLocalData ? '本地資料' : '線上資料'}
+          </span>
+        </div>
+
         {NAV_ITEMS.map((item) => (
           <NavItem key={item.to} {...item} onClick={closeOnNav} />
         ))}
       </nav>
 
-      {/* Back to game */}
-      <div className="border-t border-gray-100 p-3">
+      {/* Back to game + external links */}
+      <div className="border-t border-gray-100 p-3 space-y-0.5">
+        {EXTERNAL_LINKS.map((link) => (
+          <a
+            key={link.href}
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+          >
+            <span>{link.icon}</span>
+            {link.label}
+            <span className="ml-auto text-gray-300 text-xs">↗</span>
+          </a>
+        ))}
         <Link
           to="/"
           onClick={closeOnNav}

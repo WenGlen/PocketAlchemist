@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { QuestDef, AcceptMode } from '../../quests/data/questData';
+import { EntitySelect } from '../components/EntitySelect';
 import { questList } from '../../quests/data/questList';
 import { ACCEPT_MODE_OPTIONS, MAP_OPTIONS, getAcceptModeStyle } from '../adminConstants';
 import { StepsTabContent } from '../components/StepsTabContent';
@@ -31,6 +32,7 @@ function QuestDetailForm({ quest, allQuests }: QuestDetailFormProps) {
   const [description, setDescription] = useState(quest.description ?? '');
   const [acceptMode, setAcceptMode] = useState(quest.acceptMode ?? 'auto');
   const [prerequisiteQuestId, setPrerequisiteQuestId] = useState(quest.prerequisiteQuestId ?? '');
+  const [defaultEntityId, setDefaultEntityId] = useState(quest.defaultEntityId ?? '');
 
   // Task-level NPC overrides state
   const [questNpcOverrides, setQuestNpcOverrides] = useState<NpcOverride[]>(() =>
@@ -55,6 +57,7 @@ function QuestDetailForm({ quest, allQuests }: QuestDetailFormProps) {
     description: description || undefined,
     acceptMode: (acceptMode as AcceptMode) || undefined,
     prerequisiteQuestId: prerequisiteQuestId || undefined,
+    defaultEntityId: defaultEntityId || undefined,
     npcPositionOverrides: arrayToOverrideRecord(questNpcOverrides),
     steps: stepsRef.current?.getSteps() ?? quest.steps,
     storyNote: storyNote || undefined,
@@ -256,6 +259,17 @@ function QuestDetailForm({ quest, allQuests }: QuestDetailFormProps) {
                 const cur = ACCEPT_MODE_OPTIONS.find((o) => o.value === acceptMode);
                 return cur ? <p className="mt-1.5 text-xs text-gray-500">{cur.desc}</p> : null;
               })()}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                預設 NPC
+                <span className="ml-1 font-normal text-gray-400 text-xs">defaultEntityId</span>
+              </label>
+              <EntitySelect value={defaultEntityId} onChange={setDefaultEntityId} placeholder="（不設定）" />
+              <p className="mt-1 text-xs text-gray-400">
+                步驟未指定 entityId 時自動繼承此值，避免每步重複填寫。通常設為任務主要 NPC。
+              </p>
             </div>
 
             <div>

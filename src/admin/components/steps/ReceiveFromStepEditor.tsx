@@ -5,8 +5,6 @@ import { ItemSelect } from '../ItemSelect';
 import { BubbleEditor } from '../BubbleEditor';
 import { DialogueByEntityEditor } from '../DialogueByEntityEditor';
 import type { DialogueByEntity } from '../DialogueByEntityEditor';
-import { IntroDialogueEditor } from '../IntroDialogueEditor';
-import type { IntroLine } from '../IntroDialogueEditor';
 import { StepCompleteEditor, DEFAULT_COMPLETE, parseOnStepComplete, buildOnStepComplete } from '../StepCompleteEditor';
 import type { StepCompleteState } from '../StepCompleteEditor';
 import { NpcOverrideEditor, recordToOverrideArray, arrayToOverrideRecord } from '../NpcOverrideEditor';
@@ -30,8 +28,8 @@ export const ReceiveFromStepEditor = forwardRef<ReceiveFromStepEditorHandle, Pro
     const [itemId, setItemId] = useState(initialStep?.itemId ?? '');
     const [count, setCount] = useState(initialStep?.count ?? 1);
     const [message, setMessage] = useState(initialStep?.message ?? '');
-    const [receiveMessage, setReceiveMessage] = useState(initialStep?.receiveMessage ?? '');
-    const [receiveButtonText, setReceiveButtonText] = useState(initialStep?.receiveButtonText ?? '');
+    const [npcMessage, setNpcMessage] = useState(initialStep?.npcMessage ?? '');
+    const [actionButtonText, setActionButtonText] = useState(initialStep?.actionButtonText ?? '');
     const [bubble, setBubble] = useState({
       bubbleEntityId: initialStep?.bubbleEntityId ?? '',
       bubbleItemId: initialStep?.bubbleItemId ?? '',
@@ -39,9 +37,6 @@ export const ReceiveFromStepEditor = forwardRef<ReceiveFromStepEditorHandle, Pro
     });
     const [dialogueByEntity, setDialogueByEntity] = useState<DialogueByEntity>(
       initialStep?.dialogueByEntity ?? {}
-    );
-    const [introDialogue, setIntroDialogue] = useState<IntroLine[]>(
-      (initialStep?.introDialogue as IntroLine[] | undefined) ?? []
     );
     const [onComplete, setOnComplete] = useState<StepCompleteState>(() =>
       parseOnStepComplete(initialStep?.onStepComplete)
@@ -61,13 +56,12 @@ export const ReceiveFromStepEditor = forwardRef<ReceiveFromStepEditorHandle, Pro
           itemId,
           ...(count !== 1 && { count }),
           ...(message && { message }),
-          ...(receiveMessage && { receiveMessage }),
-          ...(receiveButtonText && { receiveButtonText }),
+          ...(npcMessage && { npcMessage }),
+          ...(actionButtonText && { actionButtonText }),
           ...(bubble.bubbleEntityId && { bubbleEntityId: bubble.bubbleEntityId }),
           ...(bubble.bubbleItemId && { bubbleItemId: bubble.bubbleItemId }),
           ...(bubble.bubbleLabel && { bubbleLabel: bubble.bubbleLabel }),
           ...(Object.keys(dialogueByEntity).length > 0 && { dialogueByEntity }),
-          ...(introDialogue.length > 0 && { introDialogue }),
           ...(stepComplete !== undefined && { onStepComplete: stepComplete }),
           ...(overrides && { npcPositionOverrides: overrides }),
         };
@@ -114,25 +108,24 @@ export const ReceiveFromStepEditor = forwardRef<ReceiveFromStepEditorHandle, Pro
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
             NPC 說的話（領取前）
-            <span className="ml-1 font-normal text-gray-400 text-xs">receiveMessage</span>
+            <span className="ml-1 font-normal text-gray-400 text-xs">npcMessage</span>
           </label>
-          <textarea value={receiveMessage} onChange={(e) => setReceiveMessage(e.target.value)} rows={2} placeholder="例：實驗員要你來拿草藥喔，給你吧。" className={INPUT} />
+          <textarea value={npcMessage} onChange={(e) => setNpcMessage(e.target.value)} rows={2} placeholder="例：實驗員要你來拿草藥喔，給你吧。" className={INPUT} />
           <p className="mt-1 text-xs text-gray-400">對話窗內領取按鈕前顯示的句子</p>
         </div>
 
         <div className="w-48">
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
             領取按鈕文字
-            <span className="ml-1 font-normal text-gray-400 text-xs">receiveButtonText</span>
+            <span className="ml-1 font-normal text-gray-400 text-xs">actionButtonText</span>
           </label>
-          <input type="text" value={receiveButtonText} onChange={(e) => setReceiveButtonText(e.target.value)} placeholder="領取" className={INPUT} />
+          <input type="text" value={actionButtonText} onChange={(e) => setActionButtonText(e.target.value)} placeholder="領取" className={INPUT} />
           <p className="mt-1 text-xs text-gray-400">預設「領取」</p>
         </div>
 
         <StepCompleteEditor value={onComplete} onChange={setOnComplete} />
         <BubbleEditor value={bubble} onChange={setBubble} entityIdDefault={entityId} />
         <DialogueByEntityEditor value={dialogueByEntity} onChange={setDialogueByEntity} />
-        <IntroDialogueEditor value={introDialogue} onChange={setIntroDialogue} />
 
         <div className="rounded-md border border-gray-200 bg-gray-50">
           <button type="button" onClick={() => setNpcOverrideOpen((o) => !o)} className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-medium text-gray-700 hover:bg-gray-100">

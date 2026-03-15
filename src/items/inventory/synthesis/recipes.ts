@@ -40,6 +40,14 @@ export const recipes: Recipe[] = [
     ],
     result: { itemId: 'ITM-pot-0003', count: 1 },
   },
+  // 野派煉金：清淤草搗碎 → 清淤草藥碎（QST-008 使用）
+  {
+    id: 'cleansing-paste',
+    ingredients: [
+      { itemId: 'ITM-mat-0010', count: 1 },
+    ],
+    result: { itemId: 'ITM-mat-0011', count: 1 },
+  },
 ];
 
 // ========== 配方匹配 ==========
