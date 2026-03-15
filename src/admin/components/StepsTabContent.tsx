@@ -24,7 +24,7 @@ const MIDDLE_STEP_TYPES = STEP_TYPE_OPTIONS.filter(
 
 function stepSummary(step: QuestStep): string {
   if (step.type === 'start') {
-    const npc = getNpcName(step.entityId);
+    const npc = getNpcName(step.entityId ?? '');
     const text = step.acceptText;
     return `${npc} — ${text.slice(0, 40)}${text.length > 40 ? '…' : ''}`;
   }
@@ -34,9 +34,9 @@ function stepSummary(step: QuestStep): string {
       : '（無完成台詞）';
   }
   if ('itemId' in step && 'entityId' in step) {
-    return `${getNpcName(step.entityId)} ／ ${getItemName(step.itemId)}`;
+    return `${getNpcName(step.entityId ?? '')} ／ ${getItemName(step.itemId)}`;
   }
-  if ('entityId' in step) return getNpcName(step.entityId);
+  if ('entityId' in step) return getNpcName((step as { entityId?: string }).entityId ?? '');
   return '';
 }
 
